@@ -28,10 +28,10 @@ class RoomCharacterRepository(
             characterDao.insert(character.toEntity(timestamp = System.currentTimeMillis()))
         } else {
             val existing = characterDao.getById(characterId)
-            val entity = if (existing == null) {
-                character.toEntity(timestamp = System.currentTimeMillis())
-            } else {
-                character.mergeInto(existing, timestamp = System.currentTimeMillis())
+            val entity = requireNotNull(existing) {
+                "Character with id=$characterId no longer exists."
+            }.let { current ->
+                character.mergeInto(current, timestamp = System.currentTimeMillis())
             }
             characterDao.update(entity)
         }

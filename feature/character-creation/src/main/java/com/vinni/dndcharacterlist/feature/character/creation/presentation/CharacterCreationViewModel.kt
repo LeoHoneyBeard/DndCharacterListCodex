@@ -18,6 +18,7 @@ import com.vinni.dndcharacterlist.core.rules.creation.repository.RulesRepository
 import com.vinni.dndcharacterlist.core.rules.creation.rules.AbilityGenerationRules
 import com.vinni.dndcharacterlist.core.rules.creation.rules.CharacterCreationRulesEngine
 import com.vinni.dndcharacterlist.core.rules.creation.rules.RulesContent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 data class CharacterCreationUiState(
@@ -151,19 +152,30 @@ class CharacterCreationViewModel(
             viewModelScope.launch { block() }
         }
         launcher {
-            try {
-                val characterId = characterRepository.createCharacter(
+            val characterId = try {
+                characterRepository.createCharacter(
                     mapper.toCharacterRecord(
                         draft = uiState.draft,
                         derived = uiState.derived,
                         rulesContent = uiState.rulesContent
                     )
                 )
-                onCreated(characterId)
-            } catch (_: Throwable) {
-                uiState = uiState.copy(stepError = "Failed to create character. Try again.")
-            } finally {
+            } catch (error: CancellationException) {
                 uiState = uiState.copy(isSubmitting = false)
+                throw error
+            } catch (_: Exception) {
+                uiState = uiState.copy(
+                    isSubmitting = false,
+                    stepError = "Failed to create character. Try again."
+                )
+                return@launcher
+            }
+
+            uiState = uiState.copy(isSubmitting = false)
+            try {
+                onCreated(characterId)
+            } catch (error: CancellationException) {
+                throw error
             }
         }
     }

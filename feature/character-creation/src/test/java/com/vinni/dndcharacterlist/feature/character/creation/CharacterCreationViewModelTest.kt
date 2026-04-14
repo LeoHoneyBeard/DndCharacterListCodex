@@ -11,9 +11,11 @@ import com.vinni.dndcharacterlist.feature.character.creation.presentation.Charac
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -120,6 +122,74 @@ class CharacterCreationViewModelTest {
         assertEquals("Failed to create character. Try again.", failingViewModel.uiState.stepError)
     }
 
+    @Test
+    fun callbackFailureDoesNotBecomePersistenceError() {
+        val callbackFailingViewModel = CharacterCreationViewModel(
+            repository = Phb2014RulesRepository(),
+            characterRepository = fakeRepository,
+            launchCreate = { block -> runBlocking { block() } }
+        )
+
+        callbackFailingViewModel.updateName("Aylin")
+        callbackFailingViewModel.updateRace("elf")
+        callbackFailingViewModel.updateSubrace("high_elf")
+        callbackFailingViewModel.updateBackground("sage")
+        callbackFailingViewModel.nextStep()
+        callbackFailingViewModel.updateClass("wizard")
+        callbackFailingViewModel.nextStep()
+        callbackFailingViewModel.updateAbilityMethod(AbilityMethod.MANUAL)
+        callbackFailingViewModel.updateBaseAbilities(AbilityScores(8, 15, 13, 14, 12, 10))
+        callbackFailingViewModel.nextStep()
+        callbackFailingViewModel.toggleClassSkill("arcana")
+        callbackFailingViewModel.toggleClassSkill("history")
+        callbackFailingViewModel.updateReplacementSkill("arcana", "investigation")
+        callbackFailingViewModel.updateReplacementSkill("history", "medicine")
+        callbackFailingViewModel.nextStep()
+        callbackFailingViewModel.nextStep()
+        callbackFailingViewModel.nextStep()
+
+        val result = runCatching {
+            callbackFailingViewModel.createCharacter { throw IllegalStateException("navigation failed") }
+        }
+
+        assertTrue(result.exceptionOrNull() is IllegalStateException)
+        assertFalse(callbackFailingViewModel.uiState.isSubmitting)
+        assertNull(callbackFailingViewModel.uiState.stepError)
+    }
+
+    @Test
+    fun cancellationIsRethrown() {
+        val cancellingViewModel = CharacterCreationViewModel(
+            repository = Phb2014RulesRepository(),
+            characterRepository = CancellingCharacterRepository(),
+            launchCreate = { block -> runBlocking { block() } }
+        )
+
+        cancellingViewModel.updateName("Aylin")
+        cancellingViewModel.updateRace("elf")
+        cancellingViewModel.updateSubrace("high_elf")
+        cancellingViewModel.updateBackground("sage")
+        cancellingViewModel.nextStep()
+        cancellingViewModel.updateClass("wizard")
+        cancellingViewModel.nextStep()
+        cancellingViewModel.updateAbilityMethod(AbilityMethod.MANUAL)
+        cancellingViewModel.updateBaseAbilities(AbilityScores(8, 15, 13, 14, 12, 10))
+        cancellingViewModel.nextStep()
+        cancellingViewModel.toggleClassSkill("arcana")
+        cancellingViewModel.toggleClassSkill("history")
+        cancellingViewModel.updateReplacementSkill("arcana", "investigation")
+        cancellingViewModel.updateReplacementSkill("history", "medicine")
+        cancellingViewModel.nextStep()
+        cancellingViewModel.nextStep()
+        cancellingViewModel.nextStep()
+
+        val result = runCatching { cancellingViewModel.createCharacter {} }
+
+        assertTrue(result.exceptionOrNull() is CancellationException)
+        assertFalse(cancellingViewModel.uiState.isSubmitting)
+        assertNull(cancellingViewModel.uiState.stepError)
+    }
+
     private class FakeCharacterRepository : CharacterRepository {
         private val characters = MutableStateFlow<List<CharacterRecord>>(emptyList())
 
@@ -182,6 +252,22 @@ class CharacterCreationViewModelTest {
 
         override suspend fun createCharacter(character: CharacterRecord): Long {
             throw IllegalStateException("boom")
+        }
+
+        override suspend fun deleteCharacter(id: Long) = Unit
+    }
+
+    private class CancellingCharacterRepository : CharacterRepository {
+        override fun observeCharacters(): Flow<List<CharacterRecord>> = MutableStateFlow(emptyList())
+
+        override fun observeCharacter(id: Long): Flow<CharacterRecord?> = MutableStateFlow(null)
+
+        override suspend fun getCharacter(id: Long): CharacterRecord? = null
+
+        override suspend fun saveCharacter(character: CharacterUpsert) = Unit
+
+        override suspend fun createCharacter(character: CharacterRecord): Long {
+            throw CancellationException("cancel")
         }
 
         override suspend fun deleteCharacter(id: Long) = Unit

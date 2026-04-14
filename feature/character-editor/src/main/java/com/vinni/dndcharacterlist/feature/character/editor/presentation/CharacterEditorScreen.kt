@@ -241,6 +241,12 @@ fun CharacterEditorScreen(
                         color = MaterialTheme.colorScheme.error
                     )
                 }
+                state.saveErrorMessage?.let { message ->
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
                 Button(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = state.isSaveEnabled,

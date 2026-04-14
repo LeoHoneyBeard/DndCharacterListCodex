@@ -29,7 +29,8 @@ data class CharacterEditorUiState(
     val notes: String = "",
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
-    val validationMessage: String? = null
+    val validationMessage: String? = null,
+    val saveErrorMessage: String? = null
 ) {
     val nameError: String?
         get() = if (name.isBlank()) "Name is required." else null
@@ -129,7 +130,7 @@ class CharacterEditorViewModel(
     }
 
     fun update(update: CharacterEditorUiState.() -> CharacterEditorUiState) {
-        uiState = uiState.update().clearValidation()
+        uiState = uiState.update().clearMessages()
     }
 
     fun save(onSaved: () -> Unit) {
@@ -137,11 +138,11 @@ class CharacterEditorViewModel(
 
         val validationMessage = uiState.validate()
         if (validationMessage != null) {
-            uiState = uiState.copy(validationMessage = validationMessage)
+            uiState = uiState.copy(validationMessage = validationMessage, saveErrorMessage = null)
             return
         }
 
-        uiState = uiState.copy(isSaving = true)
+        uiState = uiState.copy(isSaving = true, saveErrorMessage = null)
         viewModelScope.launch {
             try {
                 repository.saveCharacter(
@@ -166,6 +167,8 @@ class CharacterEditorViewModel(
                     )
                 )
                 onSaved()
+            } catch (_: IllegalArgumentException) {
+                uiState = uiState.copy(saveErrorMessage = "Character no longer exists. Reopen it from the list.")
             } finally {
                 uiState = uiState.copy(isSaving = false)
             }
@@ -181,7 +184,10 @@ class CharacterEditorViewModel(
     }
 }
 
-private fun CharacterEditorUiState.clearValidation(): CharacterEditorUiState {
-    return if (validationMessage == null) this else copy(validationMessage = null)
+private fun CharacterEditorUiState.clearMessages(): CharacterEditorUiState {
+    return copy(
+        validationMessage = null,
+        saveErrorMessage = null
+    )
 }
 

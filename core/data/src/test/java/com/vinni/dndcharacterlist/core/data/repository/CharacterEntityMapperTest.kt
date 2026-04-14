@@ -1,9 +1,15 @@
 package com.vinni.dndcharacterlist.core.data.repository
 
+import com.vinni.dndcharacterlist.core.data.local.CharacterDao
 import com.vinni.dndcharacterlist.core.data.local.CharacterEntity
+import com.vinni.dndcharacterlist.core.domain.model.CharacterRecord
 import com.vinni.dndcharacterlist.core.domain.model.CharacterUpsert
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.runBlocking
 
 class CharacterEntityMapperTest {
     @Test
@@ -74,5 +80,61 @@ class CharacterEntityMapperTest {
         assertEquals("Lawful Good", merged.alignment)
         assertEquals(20, merged.hitPoints)
         assertEquals(99L, merged.updatedAt)
+    }
+
+    @Test
+    fun saveCharacterThrowsWhenExistingRowIsMissing() = runBlocking {
+        val repository = RoomCharacterRepository(FakeCharacterDao())
+        val upsert = CharacterUpsert(
+            id = 999L,
+            name = "Missing",
+            characterClass = "Wizard",
+            subclass = "",
+            race = "Elf",
+            alignment = "",
+            background = "Sage",
+            level = 1,
+            armorClass = 12,
+            hitPoints = 8,
+            strength = 8,
+            dexterity = 14,
+            constitution = 12,
+            intelligence = 16,
+            wisdom = 10,
+            charisma = 10,
+            notes = ""
+        )
+
+        val result = runCatching { repository.saveCharacter(upsert) }
+
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+    }
+
+    private class FakeCharacterDao : CharacterDao {
+        private val characters = MutableStateFlow<List<CharacterEntity>>(emptyList())
+
+        override fun observeAll(): Flow<List<CharacterEntity>> = characters
+
+        override fun observeById(id: Long): Flow<CharacterEntity?> {
+            return MutableStateFlow(characters.value.firstOrNull { it.id == id })
+        }
+
+        override suspend fun getById(id: Long): CharacterEntity? = characters.value.firstOrNull { it.id == id }
+
+        override suspend fun insert(character: CharacterEntity): Long {
+            val nextId = (characters.value.maxOfOrNull(CharacterEntity::id) ?: 0L) + 1L
+            characters.value = characters.value + character.copy(id = nextId)
+            return nextId
+        }
+
+        override suspend fun update(character: CharacterEntity) {
+            characters.value = characters.value.map { existing ->
+                if (existing.id == character.id) character else existing
+            }
+        }
+
+        override suspend fun deleteById(id: Long) {
+            characters.value = characters.value.filterNot { it.id == id }
+        }
     }
 }
