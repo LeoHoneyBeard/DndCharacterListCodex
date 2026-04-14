@@ -152,9 +152,9 @@ class CharacterCreationViewModelTest {
             callbackFailingViewModel.createCharacter { throw IllegalStateException("navigation failed") }
         }
 
-        assertTrue(result.exceptionOrNull() is IllegalStateException)
+        assertTrue(result.isSuccess)
         assertFalse(callbackFailingViewModel.uiState.isSubmitting)
-        assertNull(callbackFailingViewModel.uiState.stepError)
+        assertEquals("Character created, but navigation failed. Try again.", callbackFailingViewModel.uiState.stepError)
         assertEquals(1, fakeRepository.characterCount())
 
         callbackFailingViewModel.createCharacter {}

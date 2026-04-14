@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.vinni.dndcharacterlist.core.domain.model.CharacterUpsert
 import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 data class CharacterEditorUiState(
@@ -30,7 +31,8 @@ data class CharacterEditorUiState(
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val validationMessage: String? = null,
-    val saveErrorMessage: String? = null
+    val saveErrorMessage: String? = null,
+    val completedAction: EditorCompletedAction? = null
 ) {
     val nameError: String?
         get() = if (name.isBlank()) "Name is required." else null
@@ -90,9 +92,15 @@ data class CharacterEditorUiState(
     }
 }
 
+enum class EditorCompletedAction {
+    SAVED,
+    DELETED
+}
+
 class CharacterEditorViewModel(
     private val repository: CharacterRepository,
-    characterId: Long?
+    characterId: Long?,
+    private val launchAsync: ((block: suspend () -> Unit) -> Unit)? = null
 ) : ViewModel() {
 
     var uiState by mutableStateOf(CharacterEditorUiState(isLoading = characterId != null))
@@ -100,7 +108,7 @@ class CharacterEditorViewModel(
 
     init {
         if (characterId != null) {
-            viewModelScope.launch {
+            launchBlock {
                 val character = repository.getCharacter(characterId)
                 uiState = if (character == null) {
                     CharacterEditorUiState(characterId = characterId)
@@ -134,6 +142,16 @@ class CharacterEditorViewModel(
     }
 
     fun save(onSaved: () -> Unit) {
+        if (uiState.completedAction == EditorCompletedAction.SAVED) {
+            try {
+                onSaved()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                uiState = uiState.copy(saveErrorMessage = "Character saved, but navigation failed. Try again.")
+            }
+            return
+        }
         if (uiState.isSaving) return
 
         val validationMessage = uiState.validate()
@@ -143,7 +161,7 @@ class CharacterEditorViewModel(
         }
 
         uiState = uiState.copy(isSaving = true, saveErrorMessage = null)
-        viewModelScope.launch {
+        launchBlock {
             try {
                 repository.saveCharacter(
                     CharacterUpsert(
@@ -166,7 +184,14 @@ class CharacterEditorViewModel(
                         notes = uiState.notes.trim()
                     )
                 )
-                onSaved()
+                uiState = uiState.copy(completedAction = EditorCompletedAction.SAVED)
+                try {
+                    onSaved()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    uiState = uiState.copy(saveErrorMessage = "Character saved, but navigation failed. Try again.")
+                }
             } catch (_: IllegalArgumentException) {
                 uiState = uiState.copy(saveErrorMessage = "Character no longer exists. Reopen it from the list.")
             } finally {
@@ -177,17 +202,39 @@ class CharacterEditorViewModel(
 
     fun delete(onDeleted: () -> Unit) {
         val id = uiState.characterId ?: return
-        viewModelScope.launch {
-            repository.deleteCharacter(id)
-            onDeleted()
+        if (uiState.completedAction == EditorCompletedAction.DELETED) {
+            try {
+                onDeleted()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                uiState = uiState.copy(saveErrorMessage = "Character deleted, but navigation failed. Try again.")
+            }
+            return
         }
+        launchBlock {
+            repository.deleteCharacter(id)
+            uiState = uiState.copy(completedAction = EditorCompletedAction.DELETED)
+            try {
+                onDeleted()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                uiState = uiState.copy(saveErrorMessage = "Character deleted, but navigation failed. Try again.")
+            }
+        }
+    }
+
+    private fun launchBlock(block: suspend () -> Unit) {
+        launchAsync?.invoke(block) ?: viewModelScope.launch { block() }
     }
 }
 
 private fun CharacterEditorUiState.clearMessages(): CharacterEditorUiState {
     return copy(
         validationMessage = null,
-        saveErrorMessage = null
+        saveErrorMessage = null,
+        completedAction = null
     )
 }
 

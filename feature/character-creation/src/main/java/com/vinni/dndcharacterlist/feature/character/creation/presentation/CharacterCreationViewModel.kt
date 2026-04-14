@@ -147,7 +147,18 @@ class CharacterCreationViewModel(
     fun createCharacter(onCreated: (Long) -> Unit) {
         if (uiState.currentStep != CharacterCreationStep.SUMMARY) return
         if (uiState.isSubmitting) return
-        if (uiState.createdCharacterId != null) return
+
+        val existingCharacterId = uiState.createdCharacterId
+        if (existingCharacterId != null) {
+            try {
+                onCreated(existingCharacterId)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                uiState = uiState.copy(stepError = "Character created, but navigation failed. Try again.")
+            }
+            return
+        }
 
         uiState = uiState.copy(isSubmitting = true)
         val launcher = launchCreate ?: { block: suspend () -> Unit ->
@@ -175,12 +186,15 @@ class CharacterCreationViewModel(
 
             uiState = uiState.copy(
                 isSubmitting = false,
-                createdCharacterId = characterId
+                createdCharacterId = characterId,
+                stepError = null
             )
             try {
                 onCreated(characterId)
             } catch (error: CancellationException) {
                 throw error
+            } catch (_: Exception) {
+                uiState = uiState.copy(stepError = "Character created, but navigation failed. Try again.")
             }
         }
     }
