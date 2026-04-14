@@ -44,6 +44,13 @@ class RoomCharacterRepository(
         return characterDao.insert(character.toEntity())
     }
 
+    override suspend fun updateCharacter(character: CharacterRecord) {
+        val updatedRows = characterDao.update(character.copy(updatedAt = System.currentTimeMillis()).toEntity())
+        require(updatedRows == 1) {
+            "Character with id=${character.id} no longer exists."
+        }
+    }
+
     override suspend fun deleteCharacter(id: Long) {
         characterDao.deleteById(id)
     }

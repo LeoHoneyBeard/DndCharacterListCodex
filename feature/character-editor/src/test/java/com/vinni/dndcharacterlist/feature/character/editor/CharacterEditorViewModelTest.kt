@@ -74,6 +74,8 @@ class CharacterEditorViewModelTest {
 
         override suspend fun createCharacter(character: CharacterRecord): Long = 1L
 
+        override suspend fun updateCharacter(character: CharacterRecord) = Unit
+
         override suspend fun deleteCharacter(id: Long) {
             deleteCalls += 1
         }

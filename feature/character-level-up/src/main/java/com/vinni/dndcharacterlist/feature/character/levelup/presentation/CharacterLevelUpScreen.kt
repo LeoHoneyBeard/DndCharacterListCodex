@@ -1,4 +1,4 @@
-package com.vinni.dndcharacterlist.feature.character.detail.presentation
+package com.vinni.dndcharacterlist.feature.character.levelup.presentation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,10 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -21,22 +21,24 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CharacterDetailScreen(
-    state: CharacterDetailUiState,
+fun CharacterLevelUpScreen(
+    state: CharacterLevelUpUiState,
     onBack: () -> Unit,
-    onEdit: () -> Unit,
-    onLevelUp: () -> Unit
+    onHitPointGainChange: (String) -> Unit,
+    onApplyLevelUp: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -49,7 +51,7 @@ fun CharacterDetailScreen(
                         )
                     }
                 },
-                title = { Text("Character") }
+                title = { Text("Level Up") }
             )
         }
     ) { paddingValues ->
@@ -65,7 +67,7 @@ fun CharacterDetailScreen(
                 }
             }
 
-            state.character == null -> {
+            state.plan == null -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -74,14 +76,14 @@ fun CharacterDetailScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Character not found.",
+                        text = state.errorMessage ?: "Level up is unavailable.",
                         textAlign = TextAlign.Center
                     )
                 }
             }
 
             else -> {
-                val character = state.character
+                val plan = state.plan
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -96,86 +98,99 @@ fun CharacterDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = character.name,
+                                text = plan.name,
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            Text(text = character.subtitle)
-                            if (character.alignment.isNotBlank()) {
-                                AssistChip(
-                                    onClick = {},
-                                    label = { Text(character.alignment) }
-                                )
-                            }
-                            Button(
-                                modifier = Modifier.fillMaxWidth(),
-                                onClick = onEdit
-                            ) {
-                                Text("Edit character")
-                            }
-                            if (character.canLevelUp) {
-                                Button(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    onClick = onLevelUp
-                                ) {
-                                    Text("Level up")
+                            Text(
+                                text = buildString {
+                                    append("Level ${plan.currentLevel} -> ${plan.nextLevel}")
+                                    if (plan.className.isNotBlank()) {
+                                        append(" | ")
+                                        append(plan.className)
+                                    }
                                 }
-                            }
-                        }
-                    }
-
-                    InfoSection(title = "Combat") {
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            MetricCard(
-                                modifier = Modifier.weight(1f),
-                                label = "Armor Class",
-                                value = character.armorClass.toString()
                             )
-                            MetricCard(
-                                modifier = Modifier.weight(1f),
-                                label = "Hit Points",
-                                value = "${character.hitPoints}/${character.hitPointsMax}"
-                            )
-                        }
-                    }
-
-                    InfoSection(title = "Ability Scores") {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            character.stats.take(3).forEach { stat ->
-                                MetricCard(
-                                    modifier = Modifier.weight(1f),
-                                    label = stat.label,
-                                    value = stat.value.toString()
-                                )
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            character.stats.drop(3).forEach { stat ->
-                                MetricCard(
-                                    modifier = Modifier.weight(1f),
-                                    label = stat.label,
-                                    value = stat.value.toString()
+                            if (plan.subclassPrompt != null) {
+                                Text(
+                                    text = plan.subclassPrompt,
+                                    style = MaterialTheme.typography.bodyMedium
                                 )
                             }
                         }
                     }
 
-                    if (character.background.isNotBlank()) {
-                        InfoSection(title = "Background") {
-                            Text(text = character.background)
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = "Hit points",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            OutlinedTextField(
+                                modifier = Modifier.fillMaxWidth(),
+                                value = state.hitPointGainInput,
+                                onValueChange = onHitPointGainChange,
+                                label = { Text("HP gained this level") },
+                                supportingText = {
+                                    Text(
+                                        state.hitPointGainError
+                                            ?: "Recommended ${plan.recommendedHitPointGain}" +
+                                                (plan.hitDieLabel?.let { " from $it average" } ?: "")
+                                    )
+                                },
+                                isError = state.hitPointGainError != null,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                SummaryCard(
+                                    modifier = Modifier.weight(1f),
+                                    label = "Current HP",
+                                    value = "${plan.currentHitPoints}/${plan.currentHitPointsMax}"
+                                )
+                                SummaryCard(
+                                    modifier = Modifier.weight(1f),
+                                    label = "New Max HP",
+                                    value = state.projectedHitPointsMax?.toString() ?: "-"
+                                )
+                            }
                         }
                     }
 
-                    if (character.notes.isNotBlank()) {
-                        InfoSection(title = "Notes") {
-                            Text(text = character.notes)
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = "Progression",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text("Proficiency bonus: +${plan.proficiencyBonus} -> +${plan.nextProficiencyBonus}")
+                            Text("Review subclass, spells, and class features manually after applying the level.")
                         }
+                    }
+
+                    state.errorMessage?.let { message ->
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = state.canApply,
+                        onClick = onApplyLevelUp
+                    ) {
+                        Text(if (state.isSaving) "Applying..." else "Apply level up")
                     }
                 }
             }
@@ -184,27 +199,7 @@ fun CharacterDetailScreen(
 }
 
 @Composable
-private fun InfoSection(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            content()
-        }
-    }
-}
-
-@Composable
-private fun MetricCard(
+private fun SummaryCard(
     modifier: Modifier,
     label: String,
     value: String
@@ -230,4 +225,3 @@ private fun MetricCard(
         }
     }
 }
-

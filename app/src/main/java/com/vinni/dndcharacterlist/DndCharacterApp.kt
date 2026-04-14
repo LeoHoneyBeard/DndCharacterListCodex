@@ -12,6 +12,8 @@ import com.vinni.dndcharacterlist.feature.character.editor.CharacterEditorDestin
 import com.vinni.dndcharacterlist.feature.character.editor.characterEditorGraph
 import com.vinni.dndcharacterlist.feature.character.list.CharacterListDestination
 import com.vinni.dndcharacterlist.feature.character.list.characterListGraph
+import com.vinni.dndcharacterlist.feature.character.levelup.CharacterLevelUpDestination
+import com.vinni.dndcharacterlist.feature.character.levelup.characterLevelUpGraph
 
 @Composable
 fun DndCharacterApp() {
@@ -38,6 +40,9 @@ fun DndCharacterApp() {
                 onBack = { navController.popBackStack() },
                 onEditCharacter = { characterId ->
                     navController.navigate(CharacterEditorDestination.route(characterId))
+                },
+                onLevelUpCharacter = { characterId ->
+                    navController.navigate(CharacterLevelUpDestination.route(characterId))
                 }
             )
             characterEditorGraph(
@@ -46,6 +51,10 @@ fun DndCharacterApp() {
                 onDeleted = {
                     navController.popBackStack(CharacterListDestination.route, inclusive = false)
                 }
+            )
+            characterLevelUpGraph(
+                onBack = { navController.popBackStack() },
+                onLeveledUp = { navController.popBackStack() }
             )
         }
     }

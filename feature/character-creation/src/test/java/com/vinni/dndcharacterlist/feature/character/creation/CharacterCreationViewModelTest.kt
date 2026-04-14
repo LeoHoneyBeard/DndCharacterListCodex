@@ -239,6 +239,12 @@ class CharacterCreationViewModelTest {
             return nextId
         }
 
+        override suspend fun updateCharacter(character: CharacterRecord) {
+            characters.value = characters.value.map { existing ->
+                if (existing.id == character.id) character else existing
+            }
+        }
+
         override suspend fun deleteCharacter(id: Long) {
             characters.value = characters.value.filterNot { it.id == id }
         }
@@ -259,6 +265,8 @@ class CharacterCreationViewModelTest {
             throw IllegalStateException("boom")
         }
 
+        override suspend fun updateCharacter(character: CharacterRecord) = Unit
+
         override suspend fun deleteCharacter(id: Long) = Unit
     }
 
@@ -274,6 +282,8 @@ class CharacterCreationViewModelTest {
         override suspend fun createCharacter(character: CharacterRecord): Long {
             throw CancellationException("cancel")
         }
+
+        override suspend fun updateCharacter(character: CharacterRecord) = Unit
 
         override suspend fun deleteCharacter(id: Long) = Unit
     }

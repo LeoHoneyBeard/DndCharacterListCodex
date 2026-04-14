@@ -15,5 +15,7 @@ interface CharacterRepository {
 
     suspend fun createCharacter(character: CharacterRecord): Long
 
+    suspend fun updateCharacter(character: CharacterRecord)
+
     suspend fun deleteCharacter(id: Long)
 }
