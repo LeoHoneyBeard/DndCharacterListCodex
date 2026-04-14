@@ -1,0 +1,32 @@
+package com.vinni.dndcharacterlist.core.domain.model
+
+data class CharacterRecord(
+    val id: Long = 0,
+    val ruleset: String = "",
+    val name: String,
+    val classId: String = "",
+    val characterClass: String,
+    val subclassId: String = "",
+    val subclass: String,
+    val raceId: String = "",
+    val race: String,
+    val subraceId: String = "",
+    val alignment: String,
+    val backgroundId: String = "",
+    val background: String,
+    val level: Int,
+    val abilityMethod: String = "",
+    val armorClass: Int,
+    val hitPoints: Int,
+    val hitPointsMax: Int = hitPoints,
+    val strength: Int,
+    val dexterity: Int,
+    val constitution: Int,
+    val intelligence: Int,
+    val wisdom: Int,
+    val charisma: Int,
+    val savingThrowProficiencies: List<String> = emptyList(),
+    val skillProficiencies: List<String> = emptyList(),
+    val notes: String,
+    val updatedAt: Long
+)
