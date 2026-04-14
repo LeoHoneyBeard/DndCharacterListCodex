@@ -16,3 +16,12 @@ dependencyResolutionManagement {
 
 rootProject.name = "DndCharacterListCodex"
 include(":app")
+include(":core:ui")
+include(":core:navigation")
+include(":core:domain")
+include(":core:data")
+include(":core:rules")
+include(":feature:character-list")
+include(":feature:character-detail")
+include(":feature:character-editor")
+include(":feature:character-creation")
