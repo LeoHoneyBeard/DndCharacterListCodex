@@ -22,7 +22,8 @@ object CharacterDetailDestination : NavigationDestination {
 
 fun NavGraphBuilder.characterDetailGraph(
     onBack: () -> Unit,
-    onEditCharacter: (Long) -> Unit
+    onEditCharacter: (Long) -> Unit,
+    onLevelUpCharacter: (Long) -> Unit
 ) {
     composable(
         route = "${CharacterDetailDestination.route}/{$CHARACTER_ID_ARG}",
@@ -33,7 +34,8 @@ fun NavGraphBuilder.characterDetailGraph(
         CharacterDetailScreen(
             state = viewModel.uiState,
             onBack = onBack,
-            onEdit = { onEditCharacter(characterId) }
+            onEdit = { onEditCharacter(characterId) },
+            onLevelUp = { onLevelUpCharacter(characterId) }
         )
     }
 }
