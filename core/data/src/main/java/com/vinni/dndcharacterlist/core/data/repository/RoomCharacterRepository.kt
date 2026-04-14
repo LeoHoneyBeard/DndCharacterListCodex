@@ -23,10 +23,16 @@ class RoomCharacterRepository(
     }
 
     override suspend fun saveCharacter(character: CharacterUpsert) {
-        val entity = character.toEntity(timestamp = System.currentTimeMillis())
-        if (character.id == null) {
-            characterDao.insert(entity)
+        val characterId = character.id
+        if (characterId == null) {
+            characterDao.insert(character.toEntity(timestamp = System.currentTimeMillis()))
         } else {
+            val existing = characterDao.getById(characterId)
+            val entity = if (existing == null) {
+                character.toEntity(timestamp = System.currentTimeMillis())
+            } else {
+                character.mergeInto(existing, timestamp = System.currentTimeMillis())
+            }
             characterDao.update(entity)
         }
     }

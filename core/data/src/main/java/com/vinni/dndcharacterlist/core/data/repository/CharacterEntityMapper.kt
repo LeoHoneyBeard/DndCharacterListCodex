@@ -97,6 +97,28 @@ internal fun CharacterUpsert.toEntity(timestamp: Long): CharacterEntity {
     )
 }
 
+internal fun CharacterUpsert.mergeInto(existing: CharacterEntity, timestamp: Long): CharacterEntity {
+    return existing.copy(
+        name = name,
+        characterClass = characterClass,
+        subclass = subclass,
+        race = race,
+        alignment = alignment,
+        background = background,
+        level = level,
+        armorClass = armorClass,
+        hitPoints = hitPoints,
+        strength = strength,
+        dexterity = dexterity,
+        constitution = constitution,
+        intelligence = intelligence,
+        wisdom = wisdom,
+        charisma = charisma,
+        notes = notes,
+        updatedAt = timestamp
+    )
+}
+
 private fun String.splitSerializedValues(): List<String> {
     return split(',')
         .map(String::trim)

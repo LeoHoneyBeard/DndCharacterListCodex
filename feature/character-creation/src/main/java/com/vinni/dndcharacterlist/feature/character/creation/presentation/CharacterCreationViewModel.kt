@@ -151,15 +151,20 @@ class CharacterCreationViewModel(
             viewModelScope.launch { block() }
         }
         launcher {
-            val characterId = characterRepository.createCharacter(
-                mapper.toCharacterRecord(
-                    draft = uiState.draft,
-                    derived = uiState.derived,
-                    rulesContent = uiState.rulesContent
+            try {
+                val characterId = characterRepository.createCharacter(
+                    mapper.toCharacterRecord(
+                        draft = uiState.draft,
+                        derived = uiState.derived,
+                        rulesContent = uiState.rulesContent
+                    )
                 )
-            )
-            onCreated(characterId)
-            uiState = uiState.copy(isSubmitting = false)
+                onCreated(characterId)
+            } catch (_: Throwable) {
+                uiState = uiState.copy(stepError = "Failed to create character. Try again.")
+            } finally {
+                uiState = uiState.copy(isSubmitting = false)
+            }
         }
     }
 

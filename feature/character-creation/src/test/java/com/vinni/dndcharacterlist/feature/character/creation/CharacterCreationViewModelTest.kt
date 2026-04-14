@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CharacterCreationViewModelTest {
@@ -87,6 +88,38 @@ class CharacterCreationViewModelTest {
         assertEquals(1, fakeRepository.characterCount())
     }
 
+    @Test
+    fun submitFailureResetsSubmittingAndExposesError() {
+        val failingViewModel = CharacterCreationViewModel(
+            repository = Phb2014RulesRepository(),
+            characterRepository = FailingCharacterRepository(),
+            launchCreate = { block -> runBlocking { block() } }
+        )
+
+        failingViewModel.updateName("Aylin")
+        failingViewModel.updateRace("elf")
+        failingViewModel.updateSubrace("high_elf")
+        failingViewModel.updateBackground("sage")
+        failingViewModel.nextStep()
+        failingViewModel.updateClass("wizard")
+        failingViewModel.nextStep()
+        failingViewModel.updateAbilityMethod(AbilityMethod.MANUAL)
+        failingViewModel.updateBaseAbilities(AbilityScores(8, 15, 13, 14, 12, 10))
+        failingViewModel.nextStep()
+        failingViewModel.toggleClassSkill("arcana")
+        failingViewModel.toggleClassSkill("history")
+        failingViewModel.updateReplacementSkill("arcana", "investigation")
+        failingViewModel.updateReplacementSkill("history", "medicine")
+        failingViewModel.nextStep()
+        failingViewModel.nextStep()
+        failingViewModel.nextStep()
+
+        failingViewModel.createCharacter {}
+
+        assertFalse(failingViewModel.uiState.isSubmitting)
+        assertEquals("Failed to create character. Try again.", failingViewModel.uiState.stepError)
+    }
+
     private class FakeCharacterRepository : CharacterRepository {
         private val characters = MutableStateFlow<List<CharacterRecord>>(emptyList())
 
@@ -136,6 +169,22 @@ class CharacterCreationViewModelTest {
         }
 
         fun characterCount(): Int = characters.value.size
+    }
+
+    private class FailingCharacterRepository : CharacterRepository {
+        override fun observeCharacters(): Flow<List<CharacterRecord>> = MutableStateFlow(emptyList())
+
+        override fun observeCharacter(id: Long): Flow<CharacterRecord?> = MutableStateFlow(null)
+
+        override suspend fun getCharacter(id: Long): CharacterRecord? = null
+
+        override suspend fun saveCharacter(character: CharacterUpsert) = Unit
+
+        override suspend fun createCharacter(character: CharacterRecord): Long {
+            throw IllegalStateException("boom")
+        }
+
+        override suspend fun deleteCharacter(id: Long) = Unit
     }
 }
 
