@@ -22,7 +22,7 @@ interface CharacterDao {
     suspend fun insert(character: CharacterEntity): Long
 
     @Update
-    suspend fun update(character: CharacterEntity)
+    suspend fun update(character: CharacterEntity): Int
 
     @Query("DELETE FROM characters WHERE id = :id")
     suspend fun deleteById(id: Long)

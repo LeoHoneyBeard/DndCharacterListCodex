@@ -155,6 +155,11 @@ class CharacterCreationViewModelTest {
         assertTrue(result.exceptionOrNull() is IllegalStateException)
         assertFalse(callbackFailingViewModel.uiState.isSubmitting)
         assertNull(callbackFailingViewModel.uiState.stepError)
+        assertEquals(1, fakeRepository.characterCount())
+
+        callbackFailingViewModel.createCharacter {}
+
+        assertEquals(1, fakeRepository.characterCount())
     }
 
     @Test

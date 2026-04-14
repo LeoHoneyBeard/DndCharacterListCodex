@@ -27,7 +27,8 @@ data class CharacterCreationUiState(
     val derived: DerivedCharacterStats = DerivedCharacterStats(),
     val rulesContent: RulesContent,
     val isSubmitting: Boolean = false,
-    val stepError: String? = null
+    val stepError: String? = null,
+    val createdCharacterId: Long? = null
 )
 
 class CharacterCreationViewModel(
@@ -146,6 +147,7 @@ class CharacterCreationViewModel(
     fun createCharacter(onCreated: (Long) -> Unit) {
         if (uiState.currentStep != CharacterCreationStep.SUMMARY) return
         if (uiState.isSubmitting) return
+        if (uiState.createdCharacterId != null) return
 
         uiState = uiState.copy(isSubmitting = true)
         val launcher = launchCreate ?: { block: suspend () -> Unit ->
@@ -171,7 +173,10 @@ class CharacterCreationViewModel(
                 return@launcher
             }
 
-            uiState = uiState.copy(isSubmitting = false)
+            uiState = uiState.copy(
+                isSubmitting = false,
+                createdCharacterId = characterId
+            )
             try {
                 onCreated(characterId)
             } catch (error: CancellationException) {

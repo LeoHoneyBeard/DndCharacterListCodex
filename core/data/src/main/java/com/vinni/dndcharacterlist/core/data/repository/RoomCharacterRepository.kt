@@ -33,7 +33,10 @@ class RoomCharacterRepository(
             }.let { current ->
                 character.mergeInto(current, timestamp = System.currentTimeMillis())
             }
-            characterDao.update(entity)
+            val updatedRows = characterDao.update(entity)
+            require(updatedRows == 1) {
+                "Character with id=$characterId no longer exists."
+            }
         }
     }
 

@@ -110,6 +110,55 @@ class CharacterEntityMapperTest {
         assertTrue(result.exceptionOrNull() is IllegalArgumentException)
     }
 
+    @Test
+    fun saveCharacterThrowsWhenRowDisappearsBeforeUpdate() = runBlocking {
+        val repository = RoomCharacterRepository(DeletingOnUpdateDao())
+        val existingId = repository.createCharacter(
+            CharacterRecord(
+                name = "Before",
+                characterClass = "Wizard",
+                subclass = "",
+                race = "Elf",
+                alignment = "",
+                background = "Sage",
+                level = 1,
+                armorClass = 12,
+                hitPoints = 8,
+                strength = 8,
+                dexterity = 14,
+                constitution = 12,
+                intelligence = 16,
+                wisdom = 10,
+                charisma = 10,
+                notes = "",
+                updatedAt = 1L
+            )
+        )
+        val upsert = CharacterUpsert(
+            id = existingId,
+            name = "After",
+            characterClass = "Wizard",
+            subclass = "",
+            race = "Elf",
+            alignment = "",
+            background = "Sage",
+            level = 1,
+            armorClass = 12,
+            hitPoints = 8,
+            strength = 8,
+            dexterity = 14,
+            constitution = 12,
+            intelligence = 16,
+            wisdom = 10,
+            charisma = 10,
+            notes = ""
+        )
+
+        val result = runCatching { repository.saveCharacter(upsert) }
+
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+    }
+
     private class FakeCharacterDao : CharacterDao {
         private val characters = MutableStateFlow<List<CharacterEntity>>(emptyList())
 
@@ -127,10 +176,38 @@ class CharacterEntityMapperTest {
             return nextId
         }
 
-        override suspend fun update(character: CharacterEntity) {
+        override suspend fun update(character: CharacterEntity): Int {
             characters.value = characters.value.map { existing ->
                 if (existing.id == character.id) character else existing
             }
+            return if (characters.value.any { it.id == character.id }) 1 else 0
+        }
+
+        override suspend fun deleteById(id: Long) {
+            characters.value = characters.value.filterNot { it.id == id }
+        }
+    }
+
+    private class DeletingOnUpdateDao : CharacterDao {
+        private val characters = MutableStateFlow<List<CharacterEntity>>(emptyList())
+
+        override fun observeAll(): Flow<List<CharacterEntity>> = characters
+
+        override fun observeById(id: Long): Flow<CharacterEntity?> {
+            return MutableStateFlow(characters.value.firstOrNull { it.id == id })
+        }
+
+        override suspend fun getById(id: Long): CharacterEntity? = characters.value.firstOrNull { it.id == id }
+
+        override suspend fun insert(character: CharacterEntity): Long {
+            val nextId = (characters.value.maxOfOrNull(CharacterEntity::id) ?: 0L) + 1L
+            characters.value = characters.value + character.copy(id = nextId)
+            return nextId
+        }
+
+        override suspend fun update(character: CharacterEntity): Int {
+            characters.value = characters.value.filterNot { it.id == character.id }
+            return 0
         }
 
         override suspend fun deleteById(id: Long) {
