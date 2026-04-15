@@ -1,4 +1,4 @@
-package com.vinni.dndcharacterlist.feature.character.detail.presentation
+package com.vinni.dndcharacterlist.feature.character.levelup.presentation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,10 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -21,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,11 +33,11 @@ import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CharacterDetailScreen(
-    state: CharacterDetailUiState,
+fun CharacterLevelUpScreen(
+    state: CharacterLevelUpUiState,
     onBack: () -> Unit,
-    onEdit: () -> Unit,
-    onLevelUp: () -> Unit
+    onSubclassSelected: (String) -> Unit,
+    onApply: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -49,7 +50,7 @@ fun CharacterDetailScreen(
                         )
                     }
                 },
-                title = { Text("Character") }
+                title = { Text("Level Up") }
             )
         }
     ) { paddingValues ->
@@ -65,7 +66,7 @@ fun CharacterDetailScreen(
                 }
             }
 
-            state.character == null -> {
+            state.characterId == null -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -74,14 +75,13 @@ fun CharacterDetailScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Character not found.",
+                        text = state.blockingMessage ?: "Character not found.",
                         textAlign = TextAlign.Center
                     )
                 }
             }
 
             else -> {
-                val character = state.character
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -96,85 +96,91 @@ fun CharacterDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = character.name,
+                                text = state.characterName,
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            Text(text = character.subtitle)
-                            if (character.alignment.isNotBlank()) {
-                                AssistChip(
-                                    onClick = {},
-                                    label = { Text(character.alignment) }
-                                )
-                            }
-                            Button(
-                                modifier = Modifier.fillMaxWidth(),
-                                onClick = onEdit
-                            ) {
-                                Text("Edit character")
-                            }
-                            Button(
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = character.canLevelUp,
-                                onClick = onLevelUp
-                            ) {
-                                Text(if (character.canLevelUp) "Level up" else "Max level reached")
-                            }
+                            Text(
+                                text = listOfNotNull(
+                                    state.className.takeIf { it.isNotBlank() },
+                                    state.currentSubclass.takeIf { it.isNotBlank() }
+                                ).joinToString(" | ")
+                            )
+                            Text(
+                                text = "Level ${state.currentLevel} -> ${state.nextLevel}",
+                                style = MaterialTheme.typography.titleMedium
+                            )
                         }
                     }
 
-                    InfoSection(title = "Combat") {
+                    InfoSection(title = "Hit Points") {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             MetricCard(
                                 modifier = Modifier.weight(1f),
-                                label = "Armor Class",
-                                value = character.armorClass.toString()
+                                label = "Current",
+                                value = "${state.currentHitPoints}/${state.currentHitPointsMax}"
                             )
                             MetricCard(
                                 modifier = Modifier.weight(1f),
-                                label = "Hit Points",
-                                value = character.hitPoints.toString()
+                                label = "Gain",
+                                value = "+${state.hitPointIncrease}"
+                            )
+                            MetricCard(
+                                modifier = Modifier.weight(1f),
+                                label = "Next",
+                                value = "${state.nextHitPoints}/${state.nextHitPointsMax}"
                             )
                         }
                     }
 
-                    InfoSection(title = "Ability Scores") {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            character.stats.take(3).forEach { stat ->
-                                MetricCard(
-                                    modifier = Modifier.weight(1f),
-                                    label = stat.label,
-                                    value = stat.value.toString()
-                                )
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            character.stats.drop(3).forEach { stat ->
-                                MetricCard(
-                                    modifier = Modifier.weight(1f),
-                                    label = stat.label,
-                                    value = stat.value.toString()
-                                )
+                    if (state.requiresSubclassSelection) {
+                        InfoSection(title = "Subclass Choice") {
+                            Text(
+                                text = "This level unlocks a mandatory subclass selection.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            state.subclassOptions.forEach { option ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .selectable(
+                                            selected = state.selectedSubclassId == option.id,
+                                            onClick = { onSubclassSelected(option.id) }
+                                        )
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    RadioButton(
+                                        selected = state.selectedSubclassId == option.id,
+                                        onClick = null
+                                    )
+                                    Text(text = option.name)
+                                }
                             }
                         }
                     }
 
-                    if (character.background.isNotBlank()) {
-                        InfoSection(title = "Background") {
-                            Text(text = character.background)
-                        }
+                    state.blockingMessage?.let { message ->
+                        MessageCard(
+                            title = "Blocked",
+                            message = message
+                        )
                     }
 
-                    if (character.notes.isNotBlank()) {
-                        InfoSection(title = "Notes") {
-                            Text(text = character.notes)
-                        }
+                    state.actionErrorMessage?.let { message ->
+                        MessageCard(
+                            title = "Action required",
+                            message = message
+                        )
+                    }
+
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = state.canApply,
+                        onClick = onApply
+                    ) {
+                        Text(if (state.isApplying) "Applying..." else "Apply level up")
                     }
                 }
             }
@@ -218,8 +224,9 @@ private fun MetricCard(
         ) {
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
             )
             Text(
                 text = label,
@@ -230,3 +237,22 @@ private fun MetricCard(
     }
 }
 
+@Composable
+private fun MessageCard(
+    title: String,
+    message: String
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(text = message)
+        }
+    }
+}

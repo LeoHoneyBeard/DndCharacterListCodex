@@ -13,7 +13,7 @@ Thumbs.db
 *.log
 
 # Local agent/project guidance
-AGENTS.md
 LOCAL_COMMANDS.md
 SECRETS.md
 SUBAGENT_HANDOFFS.md
+/AGENTS_PATHS.md

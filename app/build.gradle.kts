@@ -63,6 +63,7 @@ dependencies {
     implementation(project(":feature:character-detail"))
     implementation(project(":feature:character-editor"))
     implementation(project(":feature:character-creation"))
+    implementation(project(":feature:character-level-up"))
 
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")

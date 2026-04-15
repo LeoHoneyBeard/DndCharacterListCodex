@@ -18,13 +18,15 @@ data class CharacterDetailUiState(
 data class CharacterDetailModel(
     val id: Long,
     val name: String,
+    val level: Int,
     val subtitle: String,
     val alignment: String,
     val background: String,
     val armorClass: Int,
     val hitPoints: Int,
     val stats: List<StatValue>,
-    val notes: String
+    val notes: String,
+    val canLevelUp: Boolean
 )
 
 data class StatValue(
@@ -57,6 +59,7 @@ private fun CharacterRecord.toDetailModel(): CharacterDetailModel {
     return CharacterDetailModel(
         id = id,
         name = name,
+        level = level,
         subtitle = buildList {
             add("Level $level")
             if (race.isNotBlank()) add(race)
@@ -75,7 +78,8 @@ private fun CharacterRecord.toDetailModel(): CharacterDetailModel {
             StatValue("WIS", wisdom),
             StatValue("CHA", charisma)
         ),
-        notes = notes
+        notes = notes,
+        canLevelUp = level < 20
     )
 }
 

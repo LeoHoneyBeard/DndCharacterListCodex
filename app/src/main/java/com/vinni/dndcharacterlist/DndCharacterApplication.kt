@@ -7,6 +7,7 @@ import com.vinni.dndcharacterlist.feature.character.creation.characterCreationMo
 import com.vinni.dndcharacterlist.feature.character.detail.characterDetailModule
 import com.vinni.dndcharacterlist.feature.character.editor.characterEditorModule
 import com.vinni.dndcharacterlist.feature.character.list.characterListModule
+import com.vinni.dndcharacterlist.feature.character.levelup.characterLevelUpModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 
@@ -22,7 +23,8 @@ class DndCharacterApplication : Application() {
                 characterListModule,
                 characterDetailModule,
                 characterEditorModule,
-                characterCreationModule
+                characterCreationModule,
+                characterLevelUpModule
             )
         }
     }
