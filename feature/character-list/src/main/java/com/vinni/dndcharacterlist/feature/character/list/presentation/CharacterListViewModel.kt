@@ -31,12 +31,12 @@ class CharacterListViewModel(
         )
 }
 
-private fun CharacterRecord.toListItem(): CharacterListItem {
-    val parts = listOf(
+internal fun CharacterRecord.toListItem(): CharacterListItem {
+    val parts = listOfNotNull(
         "Lvl $level",
-        race.takeIf { it.isNotBlank() },
-        characterClass.takeIf { it.isNotBlank() },
-        subclass.takeIf { it.isNotBlank() },
+        race.toDisplayPart(),
+        characterClass.toDisplayPart(),
+        subclass.toDisplayPart(),
         "AC $armorClass",
         "HP $hitPoints"
     )
@@ -45,5 +45,12 @@ private fun CharacterRecord.toListItem(): CharacterListItem {
         name = name,
         summary = parts.joinToString(" | ")
     )
+}
+
+private fun String.toDisplayPart(): String? {
+    val sanitized = trim()
+    return sanitized.takeUnless {
+        sanitized.isBlank() || sanitized.equals("null", ignoreCase = true)
+    }
 }
 
