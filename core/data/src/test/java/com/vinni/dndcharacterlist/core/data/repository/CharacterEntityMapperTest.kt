@@ -159,6 +159,75 @@ class CharacterEntityMapperTest {
         assertTrue(result.exceptionOrNull() is IllegalArgumentException)
     }
 
+    @Test
+    fun mergeIntoUsesExplicitMetadataOverridesWhenProvided() {
+        val existing = CharacterEntity(
+            id = 1L,
+            ruleset = "PHB_2014",
+            name = "Old Name",
+            classId = "wizard",
+            characterClass = "Wizard",
+            subclassId = "",
+            subclass = "",
+            raceId = "elf",
+            race = "Elf",
+            subraceId = "high_elf",
+            alignment = "Neutral Good",
+            backgroundId = "sage",
+            background = "Sage",
+            level = 1,
+            abilityMethod = "STANDARD_ARRAY",
+            armorClass = 12,
+            hitPoints = 8,
+            hitPointsMax = 8,
+            strength = 8,
+            dexterity = 14,
+            constitution = 12,
+            intelligence = 16,
+            wisdom = 10,
+            charisma = 10,
+            savingThrowProficienciesSerialized = "INTELLIGENCE,WISDOM",
+            skillProficienciesSerialized = "arcana,history",
+            notes = "",
+            updatedAt = 1L
+        )
+        val upsert = CharacterUpsert(
+            id = 1L,
+            ruleset = "PHB_2014",
+            name = "Old Name",
+            classId = "wizard",
+            characterClass = "Wizard",
+            subclassId = "evocation",
+            subclass = "School of Evocation",
+            raceId = "elf",
+            race = "Elf",
+            subraceId = "high_elf",
+            alignment = "Neutral Good",
+            backgroundId = "sage",
+            background = "Sage",
+            level = 2,
+            abilityMethod = "STANDARD_ARRAY",
+            armorClass = 12,
+            hitPoints = 14,
+            hitPointsMax = 14,
+            strength = 8,
+            dexterity = 14,
+            constitution = 12,
+            intelligence = 16,
+            wisdom = 10,
+            charisma = 10,
+            savingThrowProficiencies = listOf("INTELLIGENCE", "WISDOM"),
+            skillProficiencies = listOf("arcana", "history"),
+            notes = ""
+        )
+
+        val merged = upsert.mergeInto(existing, timestamp = 2L)
+
+        assertEquals("evocation", merged.subclassId)
+        assertEquals("School of Evocation", merged.subclass)
+        assertEquals(14, merged.hitPointsMax)
+    }
+
     private class FakeCharacterDao : CharacterDao {
         private val characters = MutableStateFlow<List<CharacterEntity>>(emptyList())
 
