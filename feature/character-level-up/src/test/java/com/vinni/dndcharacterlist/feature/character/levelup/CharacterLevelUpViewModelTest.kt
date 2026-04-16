@@ -71,12 +71,16 @@ class CharacterLevelUpViewModelTest {
             launchAsync = { block -> runBlocking { block() } }
         )
 
+        assertTrue(viewModel.uiState.requiresSubclassSelection)
+        assertFalse(viewModel.uiState.canApply)
+
         viewModel.applyLevelUp {}
 
-        assertEquals("Choose a subclass before applying the level up.", viewModel.uiState.actionErrorMessage)
+        assertEquals(null, viewModel.uiState.actionErrorMessage)
         assertEquals(1, repository.getCharacterBlocking(9L)?.level)
 
         viewModel.selectSubclass("storm")
+        assertTrue(viewModel.uiState.canApply)
         viewModel.applyLevelUp {}
 
         assertEquals(2, repository.getCharacterBlocking(9L)?.level)
