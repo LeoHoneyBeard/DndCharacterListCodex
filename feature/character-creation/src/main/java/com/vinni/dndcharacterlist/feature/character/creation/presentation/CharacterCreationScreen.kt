@@ -2,6 +2,8 @@
 
 package com.vinni.dndcharacterlist.feature.character.creation.presentation
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Column
@@ -591,16 +593,49 @@ private fun <T> SelectionChips(
             options.forEach { option ->
                 val id = optionId(option)
                 val name = optionLabel(option)
-                AssistChip(
-                    onClick = { onSelected(id) },
-                    label = { Text(name) }
+                OptionCell(
+                    text = name,
+                    selected = id == selectedId,
+                    onClick = { onSelected(id) }
                 )
             }
         }
-        selectedId?.let { selected ->
-            val text = options.firstOrNull { optionId(it) == selected }?.let(optionLabel) ?: selected
-            Text(text = "Selected: $text")
-        }
+    }
+}
+
+@Composable
+private fun OptionCell(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
+        contentColor = if (selected) {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        border = BorderStroke(
+            width = if (selected) 2.dp else 1.dp,
+            color = if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.outlineVariant
+            }
+        ),
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+        )
     }
 }
 
