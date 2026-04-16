@@ -144,6 +144,11 @@ For feature work, bug fixes, and refactors:
 - Check whether the change implies follow-on work in navigation, DI, persistence, rules, tests, or module wiring.
 - Do not stop at the first working implementation if it leaves obvious breakage, invalid state, or architecture drift behind.
 
+Verification is part of the default workflow, not an optional follow-up:
+- After implementation and before the final report, decide whether verification should be routed through `$test-verification-orchestrator`.
+- Default to `$test-verification-orchestrator` for feature work, bug fixes, rules-driven changes, navigation changes, persistence changes, and refactors that can affect user-visible behavior or safety.
+- Do not skip the orchestration step just because one narrow compile or unit command already passed when the touched flow still has regression risk.
+
 ## Git History
 
 - For a single feature branch or task branch, prefer one squashed commit that represents the final coherent change set.
@@ -340,6 +345,25 @@ General verification rules:
 - refactors should verify both compilation and at least one focused behavior check for the touched area;
 - if verification is skipped or limited, say exactly what was not run and what risk remains;
 - tests should cover success paths, blocking validation, and the most likely regression path introduced by the change.
+
+Use `$test-verification-orchestrator` as the default verification entry point when any of the following is true:
+- business logic, rules, validation, calculations, state reduction, or repository orchestration changed;
+- a screen, navigation path, form, persistence flow, or loading/result handling changed;
+- the task spans both domain and presentation boundaries;
+- the request asks to verify, regression-check, sanity-check, smoke-test, or make the change delivery-ready.
+
+`$test-verification-orchestrator` should decide whether to run only `$android-test-gap-closer` or both `$android-test-gap-closer` and `$mobile-smoke-tests`:
+- run `$android-test-gap-closer` for business-logic, rules, repository, mapper, validation, and non-trivial `ViewModel` changes;
+- also run `$mobile-smoke-tests` when the change touches a user flow, screen entry, navigation, form interaction, save/apply path, loading state, or another critical happy path;
+- keep smoke optional for purely internal refactors that do not alter a meaningful user journey;
+- if smoke execution is blocked by missing device or setup, report `BLOCKED` explicitly instead of silently downgrading coverage.
+
+The orchestrated verification report should include:
+- which skills ran and why;
+- which commands and scenarios ran;
+- pass, fail, or blocked status for each verification track;
+- the first failing step or command when something breaks;
+- the shortest credible diagnosis and the next recommended fix.
 
 ## Final Reporting
 
