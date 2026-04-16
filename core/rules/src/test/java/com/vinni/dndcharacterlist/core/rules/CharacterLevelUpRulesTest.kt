@@ -83,7 +83,7 @@ class CharacterLevelUpRulesTest {
     }
 
     @Test
-    fun previewBlocksWhenRulesContentDoesNotDefineMandatorySubclasses() {
+    fun previewExposesWizardSubclassChoicesAtLevelTwo() {
         val rules = CharacterLevelUpRules(Phb2014RulesRepository(), HitPointEngine())
         val character = baseCharacter(
             classId = "wizard",
@@ -93,10 +93,9 @@ class CharacterLevelUpRulesTest {
 
         val preview = rules.preview(character)
 
-        assertEquals(
-            "This class needs a subclass at level 2, but the active rules content does not define those subclasses yet.",
-            preview.blockingReason
-        )
+        assertEquals(null, preview.blockingReason)
+        assertTrue(preview.requiresSubclassSelection)
+        assertEquals("evocation", preview.availableSubclasses.first { it.name == "School of Evocation" }.id)
     }
 
     private fun baseCharacter(

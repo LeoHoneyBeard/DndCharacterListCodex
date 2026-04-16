@@ -29,6 +29,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -225,9 +227,11 @@ fun CharacterEditorScreen(
                     }
                 }
 
-                EditorSection(title = "Notes", subtitle = "Anything story, equipment, goals, or reminders.") {
+                EditorSection(title = "Character notes", subtitle = "Anything story, equipment, goals, or reminders.") {
                     OutlinedTextField(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = "Notes input" },
                         value = state.notes,
                         onValueChange = { value -> onValueChange { copy(notes = value) } },
                         label = { Text("Notes") },

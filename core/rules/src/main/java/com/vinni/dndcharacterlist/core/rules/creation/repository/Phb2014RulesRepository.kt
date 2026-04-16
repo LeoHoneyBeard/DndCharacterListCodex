@@ -249,6 +249,16 @@ class Phb2014RulesRepository : RulesRepository {
                 skillChoiceCount = 2,
                 skillOptions = setOf("arcana", "history", "insight", "investigation", "medicine", "religion"),
                 subclassLevel = 2,
+                subclasses = listOf(
+                    SubclassDefinition("abjuration", "School of Abjuration"),
+                    SubclassDefinition("conjuration", "School of Conjuration"),
+                    SubclassDefinition("divination", "School of Divination"),
+                    SubclassDefinition("enchantment", "School of Enchantment"),
+                    SubclassDefinition("evocation", "School of Evocation"),
+                    SubclassDefinition("illusion", "School of Illusion"),
+                    SubclassDefinition("necromancy", "School of Necromancy"),
+                    SubclassDefinition("transmutation", "School of Transmutation")
+                ),
                 spellcasting = fullCaster(AbilityType.INTELLIGENCE)
             )
         ),

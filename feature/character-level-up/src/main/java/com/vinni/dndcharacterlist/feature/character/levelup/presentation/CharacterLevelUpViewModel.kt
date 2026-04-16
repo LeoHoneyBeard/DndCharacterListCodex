@@ -32,10 +32,14 @@ data class CharacterLevelUpUiState(
     val actionErrorMessage: String? = null,
     val completed: Boolean = false
 ) {
+    private val hasRequiredSubclassSelection: Boolean
+        get() = !requiresSubclassSelection || !selectedSubclassId.isNullOrBlank()
+
     val canApply: Boolean
         get() = !isLoading &&
             !isApplying &&
             blockingMessage == null &&
+            hasRequiredSubclassSelection &&
             characterId != null
 }
 
