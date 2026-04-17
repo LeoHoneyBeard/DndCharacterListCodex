@@ -148,6 +148,25 @@ Verification is part of the default workflow, not an optional follow-up:
 - After implementation and before the final report, decide whether verification should be routed through `$test-verification-orchestrator`.
 - Default to `$test-verification-orchestrator` for feature work, bug fixes, rules-driven changes, navigation changes, persistence changes, and refactors that can affect user-visible behavior or safety.
 - Do not skip the orchestration step just because one narrow compile or unit command already passed when the touched flow still has regression risk.
+- Verification is a hard completion gate for those task types. A task is not complete until the agent either runs `$test-verification-orchestrator` or reports a concrete blocker that prevented it.
+
+## Execution Run Hard Rules
+
+These rules apply when the user asks for a sequential execution run across multiple tasks.
+
+- Process tasks strictly one by one.
+- After each completed task, verify it, commit it, and continue immediately to the next task.
+- Do not stop on a clean commit boundary unless the user asked to stop or a concrete blocker prevents safe continuation.
+- Context size, answer size, prudence, convenience, or perceived task size are not valid stop reasons.
+- Do not claim the run is finished or summarize final metrics while there are remaining tasks and no blocker.
+- If the run stops, name the exact blocking task and the blocker category.
+- Valid blocker categories are only:
+  `BLOCKED_BY_REQUIREMENT_AMBIGUITY`
+  `BLOCKED_BY_ENVIRONMENT`
+  `BLOCKED_BY_BROKEN_BUILD_OR_TESTS`
+  `BLOCKED_BY_PERMISSION`
+  `BLOCKED_BY_CONFLICTING_USER_CHANGES`
+- Do not stop or slow down based on speculative context-budget concerns unless a concrete tool or model limit has already been hit. If a real limit is encountered, name it explicitly.
 
 ## Git History
 
@@ -345,6 +364,7 @@ General verification rules:
 - refactors should verify both compilation and at least one focused behavior check for the touched area;
 - if verification is skipped or limited, say exactly what was not run and what risk remains;
 - tests should cover success paths, blocking validation, and the most likely regression path introduced by the change.
+- when project rules require `$test-verification-orchestrator`, replacing it with ad hoc compile or unit commands without a concrete blocker is a policy violation.
 
 Use `$test-verification-orchestrator` as the default verification entry point when any of the following is true:
 - business logic, rules, validation, calculations, state reduction, or repository orchestration changed;
@@ -357,6 +377,7 @@ Use `$test-verification-orchestrator` as the default verification entry point wh
 - also run `$mobile-smoke-tests` when the change touches a user flow, screen entry, navigation, form interaction, save/apply path, loading state, or another critical happy path;
 - keep smoke optional for purely internal refactors that do not alter a meaningful user journey;
 - if smoke execution is blocked by missing device or setup, report `BLOCKED` explicitly instead of silently downgrading coverage.
+- if smoke is not run for a user-facing flow change, the agent must explicitly report either `SMOKE_NOT_REQUIRED` with a narrow reason or `SMOKE_BLOCKED` with the concrete blocker.
 
 The orchestrated verification report should include:
 - which skills ran and why;
@@ -372,6 +393,7 @@ Final task reports should state:
 - what was verified;
 - any remaining seam, limitation, or deferred coverage;
 - for refactors, which architectural direction improved.
+- for execution runs, final metrics may be reported only when the backlog is exhausted or the run stopped on a concrete blocker.
 
 ## Project-Specific Overrides
 
