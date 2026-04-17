@@ -174,6 +174,11 @@ These rules apply when the user asks for a sequential execution run across multi
 - If the backlog is large or the run is expected to be long, prefer narrow subagent delegation for per-task implementation, review, or verification slices so the main thread stays focused on sequencing and integration.
 - Subagent use in an execution run must not violate sequential delivery: only one backlog task may be actively implemented at a time, but the current task may be delegated to one or more tightly scoped subagents while the main agent coordinates and integrates the result.
 - When using subagents for an execution run, wait for their result and finish the current task before opening the next backlog task. Do not parallelize multiple backlog tasks just to save time.
+- After each task commit, the main thread must immediately begin the next backlog task unless the backlog is exhausted or a valid blocker has been reached. A clean commit boundary is never a handoff point to the user by itself.
+- Do not send a `final` response during an execution run while there are remaining backlog tasks and no valid blocker. Use only short progress updates until the run is actually complete or blocked.
+- If a subagent completes in the background during an execution run, the main thread must actively resume the loop on its own. Do not wait for a new user message before integrating the result or continuing the current task.
+- Treat any urge to pause for a mid-run summary, checkpoint, or convenience handoff as execution drift. The correct action is to continue with the next required step of the current run.
+- Before any user-facing wrap-up during an execution run, explicitly check both conditions: `backlog exhausted?` and `valid blocker reached?`. If both answers are no, continue the loop instead of responding as though the run has paused.
 - Treat excessive main-thread narration or context buildup during a long run as an execution smell. Prefer short coordination updates and offload bulky task-local work to subagents when that reduces thread clutter without breaking task order.
 
 ## Git History
