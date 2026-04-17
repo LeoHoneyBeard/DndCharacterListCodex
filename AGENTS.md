@@ -166,6 +166,8 @@ These rules apply when the user asks for a sequential execution run across multi
   `BLOCKED_BY_BROKEN_BUILD_OR_TESTS`
   `BLOCKED_BY_PERMISSION`
   `BLOCKED_BY_CONFLICTING_USER_CHANGES`
+- Waiting for a permission response is not itself a blocker. Keep the run alive, treat the step as pending approval, and continue any non-blocked analysis, coding, verification preparation, or adjacent work that can proceed safely.
+- Do not assume the user will deny a permission request. `BLOCKED_BY_PERMISSION` is valid only after an explicit denial or when a required permission is the remaining critical-path dependency and no further safe progress is possible without it.
 - Do not stop or slow down based on speculative context-budget concerns unless a concrete tool or model limit has already been hit. If a real limit is encountered, name it explicitly.
 
 ## Git History
