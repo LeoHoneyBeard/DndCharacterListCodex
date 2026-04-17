@@ -404,6 +404,9 @@ Final task reports should state:
 - Keep review mode strict for code review tasks.
 - Keep Fast Mode only for 1-2 file changes.
 - Treat architecture drift away from the target module structure as a review concern.
+- Until these rules are explicitly changed, persisted character data is disposable during development.
+- Do not preserve legacy compatibility for existing saved characters unless the user explicitly updates this rule.
+- When a rules-driven change needs to reshape or invalidate saved character records, prefer the cleaner implementation over migration seams for old local data.
 
 ## Local References
 
