@@ -156,6 +156,8 @@ These rules apply when the user asks for a sequential execution run across multi
 
 - Process tasks strictly one by one.
 - After each completed task, verify it, commit it, and continue immediately to the next task.
+- Do not stop or hand back the run early unless a valid blocker category is reached or the backlog is exhausted.
+- Reaching a convenient pause point, having several completed commits, or deciding to summarize progress are not valid stop reasons.
 - Do not stop on a clean commit boundary unless the user asked to stop or a concrete blocker prevents safe continuation.
 - Context size, answer size, prudence, convenience, or perceived task size are not valid stop reasons.
 - Do not claim the run is finished or summarize final metrics while there are remaining tasks and no blocker.
@@ -169,6 +171,10 @@ These rules apply when the user asks for a sequential execution run across multi
 - Waiting for a permission response is not itself a blocker. Keep the run alive, treat the step as pending approval, and continue any non-blocked analysis, coding, verification preparation, or adjacent work that can proceed safely.
 - Do not assume the user will deny a permission request. `BLOCKED_BY_PERMISSION` is valid only after an explicit denial or when a required permission is the remaining critical-path dependency and no further safe progress is possible without it.
 - Do not stop or slow down based on speculative context-budget concerns unless a concrete tool or model limit has already been hit. If a real limit is encountered, name it explicitly.
+- If the backlog is large or the run is expected to be long, prefer narrow subagent delegation for per-task implementation, review, or verification slices so the main thread stays focused on sequencing and integration.
+- Subagent use in an execution run must not violate sequential delivery: only one backlog task may be actively implemented at a time, but the current task may be delegated to one or more tightly scoped subagents while the main agent coordinates and integrates the result.
+- When using subagents for an execution run, wait for their result and finish the current task before opening the next backlog task. Do not parallelize multiple backlog tasks just to save time.
+- Treat excessive main-thread narration or context buildup during a long run as an execution smell. Prefer short coordination updates and offload bulky task-local work to subagents when that reduces thread clutter without breaking task order.
 
 ## Git History
 
