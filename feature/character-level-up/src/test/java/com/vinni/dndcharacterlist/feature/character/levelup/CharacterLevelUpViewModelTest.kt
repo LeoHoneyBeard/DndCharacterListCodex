@@ -14,6 +14,7 @@ import com.vinni.dndcharacterlist.core.rules.creation.rules.SkillDefinition
 import com.vinni.dndcharacterlist.core.rules.creation.rules.SpellcastingDefinition
 import com.vinni.dndcharacterlist.core.rules.creation.rules.SubclassDefinition
 import com.vinni.dndcharacterlist.core.rules.levelup.CharacterLevelUpRules
+import com.vinni.dndcharacterlist.feature.character.levelup.domain.ApplyLevelUpUseCase
 import com.vinni.dndcharacterlist.feature.character.levelup.presentation.CharacterLevelUpViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -43,6 +44,7 @@ class CharacterLevelUpViewModelTest {
         val viewModel = CharacterLevelUpViewModel(
             repository = repository,
             levelUpRules = CharacterLevelUpRules(DefaultReadyRulesRepository()),
+            applyLevelUp = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(DefaultReadyRulesRepository())),
             characterId = 7L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -66,6 +68,7 @@ class CharacterLevelUpViewModelTest {
         val viewModel = CharacterLevelUpViewModel(
             repository = repository,
             levelUpRules = CharacterLevelUpRules(RequiredSubclassRulesRepository()),
+            applyLevelUp = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(RequiredSubclassRulesRepository())),
             characterId = 9L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -94,6 +97,7 @@ class CharacterLevelUpViewModelTest {
         val viewModel = CharacterLevelUpViewModel(
             repository = repository,
             levelUpRules = CharacterLevelUpRules(UnsupportedMandatoryChoiceRulesRepository()),
+            applyLevelUp = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(UnsupportedMandatoryChoiceRulesRepository())),
             characterId = 11L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -113,6 +117,7 @@ class CharacterLevelUpViewModelTest {
         val viewModel = CharacterLevelUpViewModel(
             repository = repository,
             levelUpRules = CharacterLevelUpRules(DefaultReadyRulesRepository()),
+            applyLevelUp = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(DefaultReadyRulesRepository())),
             characterId = 404L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -135,6 +140,7 @@ class CharacterLevelUpViewModelTest {
         val viewModel = CharacterLevelUpViewModel(
             repository = repository,
             levelUpRules = CharacterLevelUpRules(DefaultReadyRulesRepository()),
+            applyLevelUp = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(DefaultReadyRulesRepository())),
             characterId = 5L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -161,6 +167,7 @@ class CharacterLevelUpViewModelTest {
         val viewModel = CharacterLevelUpViewModel(
             repository = repository,
             levelUpRules = CharacterLevelUpRules(DefaultReadyRulesRepository()),
+            applyLevelUp = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(DefaultReadyRulesRepository())),
             characterId = 1L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -347,7 +354,9 @@ class CharacterLevelUpViewModelTest {
                         subclassLevel = 3,
                         spellcasting = SpellcastingDefinition(
                             spellcastingAbility = AbilityType.WISDOM,
-                            slotsByLevel = emptyMap()
+                            slotsByLevel = mapOf(
+                                2 to com.vinni.dndcharacterlist.core.rules.creation.model.SpellSlots(firstLevel = 2)
+                            )
                         )
                     )
                 ),

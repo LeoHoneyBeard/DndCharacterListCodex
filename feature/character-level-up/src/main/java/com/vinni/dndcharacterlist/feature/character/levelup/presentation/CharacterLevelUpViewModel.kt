@@ -8,7 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
 import com.vinni.dndcharacterlist.core.rules.levelup.CharacterLevelUpRules
 import com.vinni.dndcharacterlist.core.rules.levelup.LevelUpRequirement
-import com.vinni.dndcharacterlist.core.rules.levelup.LevelUpResult
+import com.vinni.dndcharacterlist.feature.character.levelup.domain.ApplyLevelUpResult
+import com.vinni.dndcharacterlist.feature.character.levelup.domain.ApplyLevelUpUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -64,6 +65,7 @@ data class UnsupportedRequirementUiModel(
 class CharacterLevelUpViewModel(
     private val repository: CharacterRepository,
     private val levelUpRules: CharacterLevelUpRules,
+    private val applyLevelUp: ApplyLevelUpUseCase,
     characterId: Long,
     private val launchAsync: ((block: suspend () -> Unit) -> Unit)? = null
 ) : ViewModel() {
@@ -136,29 +138,26 @@ class CharacterLevelUpViewModel(
         uiState = uiState.copy(isApplying = true, actionErrorMessage = null)
         launchBlock {
             try {
-                val character = repository.getCharacter(characterId)
-                if (character == null) {
-                    uiState = uiState.copy(
-                        isApplying = false,
-                        actionErrorMessage = "Character no longer exists. Reopen it from the list."
-                    )
-                    return@launchBlock
-                }
-
-                when (val result = levelUpRules.prepareLevelUp(character, uiState.selectedSubclassId)) {
-                    is LevelUpResult.Blocked -> {
+                when (val result = applyLevelUp(characterId, uiState.selectedSubclassId)) {
+                    ApplyLevelUpResult.MissingCharacter -> {
                         uiState = uiState.copy(
                             isApplying = false,
-                            blockingMessage = result.preview.blockingReason,
+                            actionErrorMessage = "Character no longer exists. Reopen it from the list."
+                        )
+                    }
+
+                    is ApplyLevelUpResult.Blocked -> {
+                        uiState = uiState.copy(
+                            isApplying = false,
+                            blockingMessage = result.previewBlockingReason,
                             actionErrorMessage = result.reason
                         )
                     }
 
-                    is LevelUpResult.Ready -> {
-                        repository.saveCharacter(result.character)
+                    is ApplyLevelUpResult.Applied -> {
                         uiState = uiState.copy(
                             isApplying = false,
-                            blockingMessage = result.preview.blockingReason,
+                            blockingMessage = result.previewBlockingReason,
                             actionErrorMessage = null,
                             completed = true
                         )

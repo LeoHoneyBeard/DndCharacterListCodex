@@ -5,8 +5,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
-import com.vinni.dndcharacterlist.core.rules.creation.mapper.CharacterCreationMapper
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityMethod
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityScores
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityType
@@ -18,6 +16,7 @@ import com.vinni.dndcharacterlist.core.rules.creation.repository.RulesRepository
 import com.vinni.dndcharacterlist.core.rules.creation.rules.AbilityGenerationRules
 import com.vinni.dndcharacterlist.core.rules.creation.rules.CharacterCreationRulesEngine
 import com.vinni.dndcharacterlist.core.rules.creation.rules.RulesContent
+import com.vinni.dndcharacterlist.feature.character.creation.domain.CreateCharacterUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -35,8 +34,7 @@ data class CharacterCreationUiState(
 
 class CharacterCreationViewModel(
     private val repository: RulesRepository,
-    private val characterRepository: CharacterRepository,
-    private val mapper: CharacterCreationMapper = CharacterCreationMapper(),
+    private val createCharacter: CreateCharacterUseCase,
     private val rulesEngine: CharacterCreationRulesEngine = CharacterCreationRulesEngine(repository),
     private val launchCreate: ((block: suspend () -> Unit) -> Unit)? = null
 ) : ViewModel() {
@@ -197,12 +195,10 @@ class CharacterCreationViewModel(
         }
         launcher {
             val characterId = try {
-                characterRepository.createCharacter(
-                    mapper.toCharacterRecord(
-                        draft = uiState.draft,
-                        derived = uiState.derived,
-                        rulesContent = uiState.rulesContent
-                    )
+                createCharacter(
+                    draft = uiState.draft,
+                    derived = uiState.derived,
+                    rulesContent = uiState.rulesContent
                 )
             } catch (error: CancellationException) {
                 uiState = uiState.copy(isSubmitting = false)

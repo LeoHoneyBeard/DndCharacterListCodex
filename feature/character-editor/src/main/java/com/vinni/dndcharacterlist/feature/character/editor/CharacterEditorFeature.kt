@@ -5,6 +5,8 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.vinni.dndcharacterlist.core.navigation.NavigationDestination
+import com.vinni.dndcharacterlist.feature.character.editor.domain.DeleteCharacterUseCase
+import com.vinni.dndcharacterlist.feature.character.editor.domain.UpdateCharacterUseCase
 import com.vinni.dndcharacterlist.feature.character.editor.presentation.CharacterEditorScreen
 import com.vinni.dndcharacterlist.feature.character.editor.presentation.CharacterEditorViewModel
 import org.koin.androidx.compose.koinViewModel
@@ -63,5 +65,16 @@ fun NavGraphBuilder.characterEditorGraph(
 }
 
 val characterEditorModule = module {
-    viewModel { (characterId: Long?) -> CharacterEditorViewModel(get(), get(), characterId) }
+    factory { UpdateCharacterUseCase(get(), get()) }
+    factory { DeleteCharacterUseCase(get()) }
+    viewModel {
+        (characterId: Long?) ->
+        CharacterEditorViewModel(
+            repository = get(),
+            editorRules = get(),
+            updateCharacter = get(),
+            deleteCharacter = get(),
+            characterId = characterId
+        )
+    }
 }

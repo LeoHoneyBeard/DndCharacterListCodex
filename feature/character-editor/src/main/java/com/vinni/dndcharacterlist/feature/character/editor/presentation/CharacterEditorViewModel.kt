@@ -5,11 +5,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.vinni.dndcharacterlist.core.domain.model.CharacterUpsert
 import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
 import com.vinni.dndcharacterlist.core.rules.creation.model.ValidationIssue
 import com.vinni.dndcharacterlist.core.rules.editor.CharacterEditorDraft
 import com.vinni.dndcharacterlist.core.rules.editor.CharacterEditorRules
+import com.vinni.dndcharacterlist.feature.character.editor.domain.DeleteCharacterUseCase
+import com.vinni.dndcharacterlist.feature.character.editor.domain.UpdateCharacterUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -128,6 +129,8 @@ enum class EditorCompletedAction {
 class CharacterEditorViewModel(
     private val repository: CharacterRepository,
     private val editorRules: CharacterEditorRules,
+    private val updateCharacter: UpdateCharacterUseCase,
+    private val deleteCharacter: DeleteCharacterUseCase,
     characterId: Long?,
     private val launchAsync: ((block: suspend () -> Unit) -> Unit)? = null
 ) : ViewModel() {
@@ -239,7 +242,8 @@ class CharacterEditorViewModel(
         uiState = uiState.copy(isSaving = true, saveErrorMessage = null)
         launchBlock {
             try {
-                val resolved = editorRules.resolveSelections(uiState.toDraft())
+                val draft = uiState.toDraft()
+                val resolved = editorRules.resolveSelections(draft)
                 if (resolved == null) {
                     uiState = uiState.copy(
                         isSaving = false,
@@ -247,34 +251,8 @@ class CharacterEditorViewModel(
                     )
                     return@launchBlock
                 }
-                repository.saveCharacter(
-                    CharacterUpsert(
-                        id = uiState.characterId,
-                        name = uiState.name.trim(),
-                        ruleset = resolved.ruleset.name,
-                        classId = resolved.classDefinition.id,
-                        characterClass = resolved.classDefinition.name,
-                        subclassId = resolved.subclass?.id ?: "",
-                        subclass = resolved.subclass?.name.orEmpty(),
-                        raceId = resolved.race.id,
-                        race = resolved.race.name,
-                        subraceId = uiState.subraceId,
-                        alignment = uiState.alignment.trim(),
-                        backgroundId = resolved.background.id,
-                        background = resolved.background.name,
-                        level = uiState.level.toIntOrNull()?.coerceAtLeast(1) ?: 1,
-                        armorClass = uiState.armorClass.toIntOrNull()?.coerceAtLeast(0) ?: 0,
-                        hitPoints = uiState.hitPoints.toIntOrNull()?.coerceAtLeast(0) ?: 0,
-                        strength = uiState.strength.toIntOrNull()?.coerceIn(1, 30) ?: 10,
-                        dexterity = uiState.dexterity.toIntOrNull()?.coerceIn(1, 30) ?: 10,
-                        constitution = uiState.constitution.toIntOrNull()?.coerceIn(1, 30) ?: 10,
-                        intelligence = uiState.intelligence.toIntOrNull()?.coerceIn(1, 30) ?: 10,
-                        wisdom = uiState.wisdom.toIntOrNull()?.coerceIn(1, 30) ?: 10,
-                        charisma = uiState.charisma.toIntOrNull()?.coerceIn(1, 30) ?: 10,
-                        notes = uiState.notes.trim()
-                    )
-                )
-                persistedDraft = uiState.toDraft()
+                updateCharacter(uiState.characterId, draft)
+                persistedDraft = draft
                 uiState = uiState.copy(
                     completedAction = EditorCompletedAction.SAVED,
                     isDiscardConfirmationVisible = false
@@ -329,7 +307,7 @@ class CharacterEditorViewModel(
         }
         launchBlock {
             try {
-                repository.deleteCharacter(id)
+                deleteCharacter(id)
                 uiState = uiState.copy(completedAction = EditorCompletedAction.DELETED)
                 try {
                     onDeleted()

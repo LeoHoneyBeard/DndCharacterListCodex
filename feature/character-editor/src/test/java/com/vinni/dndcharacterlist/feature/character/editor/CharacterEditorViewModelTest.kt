@@ -5,6 +5,8 @@ import com.vinni.dndcharacterlist.core.domain.model.CharacterUpsert
 import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
 import com.vinni.dndcharacterlist.core.rules.creation.repository.Phb2014RulesRepository
 import com.vinni.dndcharacterlist.core.rules.editor.CharacterEditorRules
+import com.vinni.dndcharacterlist.feature.character.editor.domain.DeleteCharacterUseCase
+import com.vinni.dndcharacterlist.feature.character.editor.domain.UpdateCharacterUseCase
 import com.vinni.dndcharacterlist.feature.character.editor.presentation.CharacterEditorViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +24,8 @@ class CharacterEditorViewModelTest {
         val viewModel = CharacterEditorViewModel(
             repository = repository,
             editorRules = CharacterEditorRules(Phb2014RulesRepository()),
+            updateCharacter = UpdateCharacterUseCase(repository, CharacterEditorRules(Phb2014RulesRepository())),
+            deleteCharacter = DeleteCharacterUseCase(repository),
             characterId = null,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -58,6 +62,8 @@ class CharacterEditorViewModelTest {
         val viewModel = CharacterEditorViewModel(
             repository = repository,
             editorRules = CharacterEditorRules(Phb2014RulesRepository()),
+            updateCharacter = UpdateCharacterUseCase(repository, CharacterEditorRules(Phb2014RulesRepository())),
+            deleteCharacter = DeleteCharacterUseCase(repository),
             characterId = null,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -83,6 +89,8 @@ class CharacterEditorViewModelTest {
         val viewModel = CharacterEditorViewModel(
             repository = repository,
             editorRules = CharacterEditorRules(Phb2014RulesRepository()),
+            updateCharacter = UpdateCharacterUseCase(repository, CharacterEditorRules(Phb2014RulesRepository())),
+            deleteCharacter = DeleteCharacterUseCase(repository),
             characterId = null,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -120,6 +128,8 @@ class CharacterEditorViewModelTest {
         val viewModel = CharacterEditorViewModel(
             repository = repository,
             editorRules = CharacterEditorRules(Phb2014RulesRepository()),
+            updateCharacter = UpdateCharacterUseCase(repository, CharacterEditorRules(Phb2014RulesRepository())),
+            deleteCharacter = DeleteCharacterUseCase(repository),
             characterId = 42L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -155,6 +165,8 @@ class CharacterEditorViewModelTest {
         val viewModel = CharacterEditorViewModel(
             repository = repository,
             editorRules = CharacterEditorRules(Phb2014RulesRepository()),
+            updateCharacter = UpdateCharacterUseCase(repository, CharacterEditorRules(Phb2014RulesRepository())),
+            deleteCharacter = DeleteCharacterUseCase(repository),
             characterId = 42L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -175,6 +187,8 @@ class CharacterEditorViewModelTest {
         val viewModel = CharacterEditorViewModel(
             repository = repository,
             editorRules = CharacterEditorRules(Phb2014RulesRepository()),
+            updateCharacter = UpdateCharacterUseCase(repository, CharacterEditorRules(Phb2014RulesRepository())),
+            deleteCharacter = DeleteCharacterUseCase(repository),
             characterId = 42L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -196,6 +210,8 @@ class CharacterEditorViewModelTest {
         val viewModel = CharacterEditorViewModel(
             repository = repository,
             editorRules = CharacterEditorRules(Phb2014RulesRepository()),
+            updateCharacter = UpdateCharacterUseCase(repository, CharacterEditorRules(Phb2014RulesRepository())),
+            deleteCharacter = DeleteCharacterUseCase(repository),
             characterId = 42L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -217,6 +233,8 @@ class CharacterEditorViewModelTest {
         val viewModel = CharacterEditorViewModel(
             repository = repository,
             editorRules = CharacterEditorRules(Phb2014RulesRepository()),
+            updateCharacter = UpdateCharacterUseCase(repository, CharacterEditorRules(Phb2014RulesRepository())),
+            deleteCharacter = DeleteCharacterUseCase(repository),
             characterId = 42L,
             launchAsync = { block -> runBlocking { block() } }
         )

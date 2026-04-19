@@ -3,11 +3,13 @@ package com.vinni.dndcharacterlist.feature.character.creation
 import com.vinni.dndcharacterlist.core.domain.model.CharacterRecord
 import com.vinni.dndcharacterlist.core.domain.model.CharacterUpsert
 import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
+import com.vinni.dndcharacterlist.core.rules.creation.mapper.CharacterCreationMapper
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityMethod
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityScores
 import com.vinni.dndcharacterlist.core.rules.creation.model.CharacterCreationStep
 import com.vinni.dndcharacterlist.core.rules.creation.model.Ruleset
 import com.vinni.dndcharacterlist.core.rules.creation.repository.Phb2014RulesRepository
+import com.vinni.dndcharacterlist.feature.character.creation.domain.CreateCharacterUseCase
 import com.vinni.dndcharacterlist.feature.character.creation.presentation.CharacterCreationViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +27,7 @@ class CharacterCreationViewModelTest {
     private val fakeRepository = FakeCharacterRepository()
     private val viewModel = CharacterCreationViewModel(
         repository = Phb2014RulesRepository(),
-        characterRepository = fakeRepository,
+        createCharacter = CreateCharacterUseCase(fakeRepository, CharacterCreationMapper()),
         launchCreate = { block -> runBlocking { block() } }
     )
 
@@ -97,7 +99,7 @@ class CharacterCreationViewModelTest {
     fun submitFailureResetsSubmittingAndExposesError() {
         val failingViewModel = CharacterCreationViewModel(
             repository = Phb2014RulesRepository(),
-            characterRepository = FailingCharacterRepository(),
+            createCharacter = CreateCharacterUseCase(FailingCharacterRepository(), CharacterCreationMapper()),
             launchCreate = { block -> runBlocking { block() } }
         )
 
@@ -179,7 +181,7 @@ class CharacterCreationViewModelTest {
     fun callbackFailureDoesNotBecomePersistenceError() {
         val callbackFailingViewModel = CharacterCreationViewModel(
             repository = Phb2014RulesRepository(),
-            characterRepository = fakeRepository,
+            createCharacter = CreateCharacterUseCase(fakeRepository, CharacterCreationMapper()),
             launchCreate = { block -> runBlocking { block() } }
         )
 
@@ -219,7 +221,7 @@ class CharacterCreationViewModelTest {
     fun cancellationIsRethrown() {
         val cancellingViewModel = CharacterCreationViewModel(
             repository = Phb2014RulesRepository(),
-            characterRepository = CancellingCharacterRepository(),
+            createCharacter = CreateCharacterUseCase(CancellingCharacterRepository(), CharacterCreationMapper()),
             launchCreate = { block -> runBlocking { block() } }
         )
 
