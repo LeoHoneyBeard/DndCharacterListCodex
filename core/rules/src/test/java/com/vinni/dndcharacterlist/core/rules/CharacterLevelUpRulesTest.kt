@@ -118,6 +118,26 @@ class CharacterLevelUpRulesTest {
         )
     }
 
+    @Test
+    fun previewBlocksUnsupportedSpellProgressionDataExplicitly() {
+        val rules = CharacterLevelUpRules(Phb2014RulesRepository(), HitPointEngine())
+        val character = baseCharacter(
+            classId = "warlock",
+            characterClass = "Warlock",
+            level = 1
+        )
+
+        val preview = rules.preview(character)
+
+        assertEquals(null, preview.blockingReason)
+        val requirement = preview.requirements.first() as LevelUpRequirement.UnsupportedChoice
+        assertEquals("Spell Progression", requirement.title)
+        assertEquals(
+            "The active rules content does not define spell slot progression for Warlock at level 2 yet.",
+            requirement.description
+        )
+    }
+
     private fun baseCharacter(
         classId: String = "wizard",
         characterClass: String = "Wizard",
@@ -201,7 +221,7 @@ class CharacterLevelUpRulesTest {
                         subclassLevel = 3,
                         spellcasting = SpellcastingDefinition(
                             spellcastingAbility = AbilityType.WISDOM,
-                            slotsByLevel = emptyMap()
+                            slotsByLevel = mapOf(2 to com.vinni.dndcharacterlist.core.rules.creation.model.SpellSlots(firstLevel = 2))
                         )
                     )
                 ),

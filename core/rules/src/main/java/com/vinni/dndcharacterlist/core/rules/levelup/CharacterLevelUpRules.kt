@@ -163,11 +163,26 @@ class CharacterLevelUpRules(
         classDefinition: ClassDefinition,
         nextLevel: Int
     ): UnsupportedChoice? {
+        missingSpellProgressionRequirement(character.characterClass, classDefinition, nextLevel)?.let { return it }
         abilityScoreImprovementRequirement(character.classId, nextLevel)?.let { return it }
         fightingStyleRequirement(character.classId, nextLevel)?.let { return it }
         expertiseRequirement(character.classId, nextLevel)?.let { return it }
         spellChoiceRequirement(character.classId, classDefinition, nextLevel)?.let { return it }
         return null
+    }
+
+    private fun missingSpellProgressionRequirement(
+        className: String,
+        classDefinition: ClassDefinition,
+        nextLevel: Int
+    ): UnsupportedChoice? {
+        val spellcasting = classDefinition.spellcasting ?: return null
+        if (nextLevel <= 1) return null
+        if (spellcasting.slotsByLevel.containsKey(nextLevel)) return null
+        return UnsupportedChoice(
+            title = "Spell Progression",
+            description = "The active rules content does not define spell slot progression for $className at level $nextLevel yet."
+        )
     }
 
     private fun abilityScoreImprovementRequirement(classId: String, nextLevel: Int): UnsupportedChoice? {
