@@ -133,7 +133,7 @@ fun CharacterDetailScreen(
                             MetricCard(
                                 modifier = Modifier.weight(1f),
                                 label = "Hit Points",
-                                value = character.hitPoints.toString()
+                                value = "${character.hitPoints}/${character.hitPointsMax}"
                             )
                         }
                     }

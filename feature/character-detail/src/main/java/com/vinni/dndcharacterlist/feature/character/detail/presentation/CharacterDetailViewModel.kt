@@ -24,6 +24,7 @@ data class CharacterDetailModel(
     val background: String,
     val armorClass: Int,
     val hitPoints: Int,
+    val hitPointsMax: Int,
     val stats: List<StatValue>,
     val notes: String,
     val canLevelUp: Boolean
@@ -70,6 +71,7 @@ private fun CharacterRecord.toDetailModel(): CharacterDetailModel {
         background = background,
         armorClass = armorClass,
         hitPoints = hitPoints,
+        hitPointsMax = hitPointsMax,
         stats = listOf(
             StatValue("STR", strength),
             StatValue("DEX", dexterity),

@@ -38,6 +38,8 @@ class CharacterDetailViewModelTest {
                 race = "Elf",
                 characterClass = "Wizard",
                 subclass = "School of Evocation",
+                hitPoints = 27,
+                hitPointsMax = 32,
                 notes = "Knows too much"
             )
         )
@@ -48,6 +50,8 @@ class CharacterDetailViewModelTest {
         val model = requireNotNull(viewModel.uiState.character)
         assertFalse(viewModel.uiState.isLoading)
         assertEquals("Level 4 | Elf | Wizard | School of Evocation", model.subtitle)
+        assertEquals(27, model.hitPoints)
+        assertEquals(32, model.hitPointsMax)
         assertEquals(listOf("STR", "DEX", "CON", "INT", "WIS", "CHA"), model.stats.map(StatValue::label))
         assertEquals(listOf(8, 14, 12, 16, 10, 13), model.stats.map(StatValue::value))
         assertEquals("Knows too much", model.notes)
@@ -89,6 +93,8 @@ class CharacterDetailViewModelTest {
         race: String,
         characterClass: String,
         subclass: String,
+        hitPoints: Int = 32,
+        hitPointsMax: Int = hitPoints,
         notes: String = ""
     ): CharacterRecord {
         return CharacterRecord(
@@ -108,7 +114,8 @@ class CharacterDetailViewModelTest {
             level = level,
             abilityMethod = "STANDARD_ARRAY",
             armorClass = 15,
-            hitPoints = 32,
+            hitPoints = hitPoints,
+            hitPointsMax = hitPointsMax,
             strength = 8,
             dexterity = 14,
             constitution = 12,
