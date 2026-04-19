@@ -152,6 +152,29 @@ fun CharacterDetailScreen(
                         }
                     }
 
+                    InfoSection(title = "Build") {
+                        DetailMetadataRow(
+                            label = "Ruleset",
+                            value = character.ruleset
+                        )
+                        character.progressionDetails.forEach { item ->
+                            Text(text = item)
+                        }
+                    }
+
+                    InfoSection(title = "Proficiencies") {
+                        DetailMetadataRow(
+                            label = "Saving Throws",
+                            value = character.savingThrowProficiencies.ifEmpty { listOf("None recorded") }
+                                .joinToString(", ")
+                        )
+                        DetailMetadataRow(
+                            label = "Skills",
+                            value = character.skillProficiencies.ifEmpty { listOf("None recorded") }
+                                .joinToString(", ")
+                        )
+                    }
+
                     InfoSection(title = "Ability Scores") {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -193,6 +216,21 @@ fun CharacterDetailScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DetailMetadataRow(
+    label: String,
+    value: String
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(text = value)
     }
 }
 

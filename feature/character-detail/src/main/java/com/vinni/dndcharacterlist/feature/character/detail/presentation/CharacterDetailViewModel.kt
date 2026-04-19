@@ -23,11 +23,15 @@ data class CharacterDetailModel(
     val name: String,
     val level: Int,
     val subtitle: String,
+    val ruleset: String,
+    val progressionDetails: List<String>,
     val alignment: String,
     val background: String,
     val armorClass: Int,
     val hitPoints: Int,
     val hitPointsMax: Int,
+    val savingThrowProficiencies: List<String>,
+    val skillProficiencies: List<String>,
     val stats: List<StatValue>,
     val notes: String,
     val canLevelUp: Boolean
@@ -103,11 +107,19 @@ private fun CharacterRecord.toDetailModel(): CharacterDetailModel {
             if (characterClass.isNotBlank()) add(characterClass)
             if (subclass.isNotBlank()) add(subclass)
         }.joinToString(" | "),
+        ruleset = ruleset.toRulesetLabel(),
+        progressionDetails = buildList {
+            if (characterClass.isNotBlank()) add("Class: $characterClass")
+            if (subclass.isNotBlank()) add("Subclass: $subclass")
+            add("Level $level")
+        },
         alignment = alignment,
         background = background,
         armorClass = armorClass,
         hitPoints = hitPoints,
         hitPointsMax = hitPointsMax,
+        savingThrowProficiencies = savingThrowProficiencies.map(String::toDetailLabel),
+        skillProficiencies = skillProficiencies.map(String::toDetailLabel),
         stats = listOf(
             StatValue("STR", strength),
             StatValue("DEX", dexterity),
@@ -126,5 +138,25 @@ private fun CharacterRecord.duplicateAsDraft(timestamp: Long): CharacterRecord {
         id = 0L,
         updatedAt = timestamp
     )
+}
+
+private fun String.toRulesetLabel(): String {
+    return when (trim()) {
+        "PHB_2014" -> "PHB 2014"
+        else -> toDetailLabel()
+    }
+}
+
+private fun String.toDetailLabel(): String {
+    val normalized = trim()
+        .replace('_', ' ')
+        .replace('-', ' ')
+    if (normalized.isBlank()) return normalized
+    return normalized
+        .split(' ')
+        .filter(String::isNotBlank)
+        .joinToString(" ") { part ->
+            part.lowercase().replaceFirstChar { char -> char.titlecase() }
+        }
 }
 

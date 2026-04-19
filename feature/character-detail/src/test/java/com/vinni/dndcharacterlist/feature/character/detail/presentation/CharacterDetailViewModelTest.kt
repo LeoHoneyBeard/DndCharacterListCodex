@@ -40,6 +40,8 @@ class CharacterDetailViewModelTest {
                 subclass = "School of Evocation",
                 hitPoints = 27,
                 hitPointsMax = 32,
+                savingThrowProficiencies = listOf("INTELLIGENCE", "WISDOM"),
+                skillProficiencies = listOf("arcana", "sleight_of_hand"),
                 notes = "Knows too much"
             )
         )
@@ -50,8 +52,15 @@ class CharacterDetailViewModelTest {
         val model = requireNotNull(viewModel.uiState.character)
         assertFalse(viewModel.uiState.isLoading)
         assertEquals("Level 4 | Elf | Wizard | School of Evocation", model.subtitle)
+        assertEquals("PHB 2014", model.ruleset)
+        assertEquals(
+            listOf("Class: Wizard", "Subclass: School of Evocation", "Level 4"),
+            model.progressionDetails
+        )
         assertEquals(27, model.hitPoints)
         assertEquals(32, model.hitPointsMax)
+        assertEquals(listOf("Intelligence", "Wisdom"), model.savingThrowProficiencies)
+        assertEquals(listOf("Arcana", "Sleight Of Hand"), model.skillProficiencies)
         assertEquals(listOf("STR", "DEX", "CON", "INT", "WIS", "CHA"), model.stats.map(StatValue::label))
         assertEquals(listOf(8, 14, 12, 16, 10, 13), model.stats.map(StatValue::value))
         assertEquals("Knows too much", model.notes)
@@ -126,6 +135,8 @@ class CharacterDetailViewModelTest {
         subclass: String,
         hitPoints: Int = 32,
         hitPointsMax: Int = hitPoints,
+        savingThrowProficiencies: List<String> = emptyList(),
+        skillProficiencies: List<String> = emptyList(),
         notes: String = ""
     ): CharacterRecord {
         return CharacterRecord(
@@ -153,6 +164,8 @@ class CharacterDetailViewModelTest {
             intelligence = 16,
             wisdom = 10,
             charisma = 13,
+            savingThrowProficiencies = savingThrowProficiencies,
+            skillProficiencies = skillProficiencies,
             notes = notes,
             updatedAt = 1L
         )
