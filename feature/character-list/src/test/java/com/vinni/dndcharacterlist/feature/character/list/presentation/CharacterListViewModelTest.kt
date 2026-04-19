@@ -52,24 +52,14 @@ class CharacterListViewModelTest {
     fun `uiState exposes populated content separately from loading`() {
         val repository = FakeCharacterRepository(
             listOf(
-                CharacterRecord(
+                character(
                     id = 1L,
                     name = "Aylin",
                     characterClass = "Wizard",
-                    subclass = "",
                     race = "Elf",
-                    alignment = "Neutral Good",
-                    background = "Sage",
                     level = 2,
                     armorClass = 12,
                     hitPoints = 9,
-                    strength = 8,
-                    dexterity = 14,
-                    constitution = 12,
-                    intelligence = 16,
-                    wisdom = 10,
-                    charisma = 13,
-                    notes = "",
                     updatedAt = 1L
                 )
             )
@@ -83,6 +73,7 @@ class CharacterListViewModelTest {
         assertFalse(viewModel.uiState.value.isLoading)
         assertEquals(1, viewModel.uiState.value.characters.size)
         assertEquals(null, viewModel.uiState.value.errorMessage)
+        assertEquals(CharacterListSortMode.UPDATED_AT, viewModel.uiState.value.sortMode)
     }
 
     @Test
@@ -95,6 +86,82 @@ class CharacterListViewModelTest {
         assertFalse(viewModel.uiState.value.isLoading)
         assertEquals(emptyList<CharacterListItem>(), viewModel.uiState.value.characters)
         assertEquals("Couldn't load characters. Try again.", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun `search query filters visible characters by name`() {
+        val repository = FakeCharacterRepository(
+            listOf(
+                character(id = 1L, name = "Aylin", updatedAt = 3L),
+                character(id = 2L, name = "Borin", updatedAt = 2L),
+                character(id = 3L, name = "Aya", updatedAt = 1L)
+            )
+        )
+        val viewModel = CharacterListViewModel(
+            repository = repository,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        )
+
+        viewModel.updateSearchQuery("ay")
+
+        assertEquals("ay", viewModel.uiState.value.searchQuery)
+        assertEquals(listOf("Aylin", "Aya"), viewModel.uiState.value.characters.map(CharacterListItem::name))
+        assertEquals(true, viewModel.uiState.value.hasSavedCharacters)
+    }
+
+    @Test
+    fun `sort mode changes reorder the same visible list`() {
+        val repository = FakeCharacterRepository(
+            listOf(
+                character(id = 1L, name = "Borin", level = 2, updatedAt = 1L),
+                character(id = 2L, name = "Aylin", level = 5, updatedAt = 2L),
+                character(id = 3L, name = "Cora", level = 3, updatedAt = 3L)
+            )
+        )
+        val viewModel = CharacterListViewModel(
+            repository = repository,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        )
+
+        assertEquals(listOf("Cora", "Aylin", "Borin"), viewModel.uiState.value.characters.map(CharacterListItem::name))
+
+        viewModel.setSortMode(CharacterListSortMode.NAME)
+        assertEquals(listOf("Aylin", "Borin", "Cora"), viewModel.uiState.value.characters.map(CharacterListItem::name))
+
+        viewModel.setSortMode(CharacterListSortMode.LEVEL)
+        assertEquals(listOf("Aylin", "Cora", "Borin"), viewModel.uiState.value.characters.map(CharacterListItem::name))
+    }
+
+    private fun character(
+        id: Long,
+        name: String,
+        characterClass: String = "Wizard",
+        race: String = "Elf",
+        level: Int = 1,
+        armorClass: Int = 12,
+        hitPoints: Int = 8,
+        updatedAt: Long
+    ): CharacterRecord {
+        return CharacterRecord(
+            id = id,
+            name = name,
+            characterClass = characterClass,
+            subclass = "",
+            race = race,
+            alignment = "Neutral Good",
+            background = "Sage",
+            level = level,
+            armorClass = armorClass,
+            hitPoints = hitPoints,
+            strength = 8,
+            dexterity = 14,
+            constitution = 12,
+            intelligence = 16,
+            wisdom = 10,
+            charisma = 13,
+            notes = "",
+            updatedAt = updatedAt
+        )
     }
 
     private class FakeCharacterRepository(
