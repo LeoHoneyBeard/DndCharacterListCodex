@@ -41,6 +41,7 @@ import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityMethod
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityScores
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityType
 import com.vinni.dndcharacterlist.core.rules.creation.model.CharacterCreationStep
+import com.vinni.dndcharacterlist.core.rules.creation.model.Ruleset
 import com.vinni.dndcharacterlist.core.rules.creation.rules.AbilityGenerationRules
 import com.vinni.dndcharacterlist.core.rules.creation.rules.ClassDefinition
 import com.vinni.dndcharacterlist.core.rules.creation.rules.RaceDefinition
@@ -55,6 +56,7 @@ fun CharacterCreationScreen(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSubmit: () -> Unit,
+    onRulesetChange: (Ruleset) -> Unit,
     onNameChange: (String) -> Unit,
     onRaceChange: (String) -> Unit,
     onSubraceChange: (String?) -> Unit,
@@ -117,6 +119,7 @@ fun CharacterCreationScreen(
             when (state.currentStep) {
                 CharacterCreationStep.ORIGIN -> OriginStep(
                     state = state,
+                    onRulesetChange = onRulesetChange,
                     onNameChange = onNameChange,
                     onRaceChange = onRaceChange,
                     onSubraceChange = onSubraceChange,
@@ -214,6 +217,7 @@ private fun StepHeader(currentStep: CharacterCreationStep) {
 @Composable
 private fun OriginStep(
     state: CharacterCreationUiState,
+    onRulesetChange: (Ruleset) -> Unit,
     onNameChange: (String) -> Unit,
     onRaceChange: (String) -> Unit,
     onSubraceChange: (String?) -> Unit,
@@ -225,6 +229,16 @@ private fun OriginStep(
         title = "Origin",
         subtitle = "Choose the PHB 2014 identity basics for the character."
     ) {
+        SelectionChips(
+            label = "Ruleset",
+            options = Ruleset.entries,
+            selectedId = state.draft.ruleset.name,
+            optionLabel = { it.label() },
+            optionId = { it.name },
+            onSelected = { selected ->
+                Ruleset.entries.firstOrNull { it.name == selected }?.let(onRulesetChange)
+            }
+        )
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
             value = state.draft.name,
@@ -478,6 +492,7 @@ private fun SummaryStep(state: CharacterCreationUiState) {
         title = "Summary",
         subtitle = "This step is the only place where creation can be submitted."
     ) {
+        RuleSummaryLine("Ruleset", state.draft.ruleset.label())
         RuleSummaryLine("Name", state.draft.name)
         RuleSummaryLine("Race", listOfNotNull(raceLabel, subraceLabel).joinToString(" / "))
         RuleSummaryLine("Class", listOfNotNull(classLabel, subclassLabel).joinToString(" / "))
@@ -682,6 +697,12 @@ private fun AbilityType.shortLabel(): String {
         AbilityType.INTELLIGENCE -> "INT"
         AbilityType.WISDOM -> "WIS"
         AbilityType.CHARISMA -> "CHA"
+    }
+}
+
+private fun Ruleset.label(): String {
+    return when (this) {
+        Ruleset.PHB_2014 -> "PHB 2014"
     }
 }
 

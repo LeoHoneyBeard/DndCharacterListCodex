@@ -27,6 +27,7 @@ fun NavGraphBuilder.characterCreationGraph(
             onPrevious = viewModel::previousStep,
             onNext = viewModel::nextStep,
             onSubmit = { viewModel.createCharacter(onCharacterCreated) },
+            onRulesetChange = viewModel::updateRuleset,
             onNameChange = viewModel::updateName,
             onRaceChange = viewModel::updateRace,
             onSubraceChange = viewModel::updateSubrace,

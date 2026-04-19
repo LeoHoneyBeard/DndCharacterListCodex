@@ -34,22 +34,22 @@ data class CharacterCreationUiState(
 )
 
 class CharacterCreationViewModel(
-    repository: RulesRepository,
+    private val repository: RulesRepository,
     private val characterRepository: CharacterRepository,
     private val mapper: CharacterCreationMapper = CharacterCreationMapper(),
     private val rulesEngine: CharacterCreationRulesEngine = CharacterCreationRulesEngine(repository),
     private val launchCreate: ((block: suspend () -> Unit) -> Unit)? = null
 ) : ViewModel() {
-
-    private val rulesContent = repository.getRuleset(Ruleset.PHB_2014)
     private var persistedDraft = CharacterCreationDraft()
 
     var uiState by mutableStateOf(
         CharacterCreationUiState(
-            rulesContent = rulesContent
-        ).recalculate(rulesEngine).withDirtyState()
+            rulesContent = repository.getRuleset(persistedDraft.ruleset)
+        ).recalculate().withDirtyState()
     )
         private set
+
+    fun updateRuleset(ruleset: Ruleset) = updateDraft { copy(ruleset = ruleset) }
 
     fun updateName(value: String) = updateDraft { copy(name = value) }
 
@@ -237,7 +237,7 @@ class CharacterCreationViewModel(
             draft = uiState.draft.update(),
             isDiscardConfirmationVisible = false,
             stepError = null
-        ).recalculate(rulesEngine).withDirtyState()
+        ).recalculate().withDirtyState()
     }
 
     private fun validateCurrentStep(): String? {
@@ -291,12 +291,14 @@ class CharacterCreationViewModel(
             hasUnsavedChanges = createdCharacterId == null && draft != persistedDraft
         )
     }
-}
 
-private fun CharacterCreationUiState.recalculate(
-    rulesEngine: CharacterCreationRulesEngine
-): CharacterCreationUiState {
-    return copy(derived = rulesEngine.derive(draft))
+    private fun CharacterCreationUiState.recalculate(): CharacterCreationUiState {
+        val currentRulesContent = repository.getRuleset(draft.ruleset)
+        return copy(
+            rulesContent = currentRulesContent,
+            derived = rulesEngine.derive(draft)
+        )
+    }
 }
 
 private fun CharacterCreationStep.next(): CharacterCreationStep {

@@ -6,6 +6,7 @@ import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityMethod
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityScores
 import com.vinni.dndcharacterlist.core.rules.creation.model.CharacterCreationStep
+import com.vinni.dndcharacterlist.core.rules.creation.model.Ruleset
 import com.vinni.dndcharacterlist.core.rules.creation.repository.Phb2014RulesRepository
 import com.vinni.dndcharacterlist.feature.character.creation.presentation.CharacterCreationViewModel
 import kotlinx.coroutines.flow.Flow
@@ -63,6 +64,7 @@ class CharacterCreationViewModelTest {
         assertFalse(viewModel.uiState.isSubmitting)
 
         var createdId: Long? = null
+        viewModel.updateRuleset(Ruleset.PHB_2014)
         viewModel.updateName("Aylin")
         viewModel.updateRace("elf")
         viewModel.updateSubrace("high_elf")
@@ -88,6 +90,7 @@ class CharacterCreationViewModelTest {
         assertFalse(viewModel.uiState.isSubmitting)
         assertEquals(1L, createdId)
         assertEquals(1, fakeRepository.characterCount())
+        assertEquals("PHB_2014", fakeRepository.lastCreatedCharacter?.ruleset)
     }
 
     @Test
@@ -247,6 +250,7 @@ class CharacterCreationViewModelTest {
 
     private class FakeCharacterRepository : CharacterRepository {
         private val characters = MutableStateFlow<List<CharacterRecord>>(emptyList())
+        var lastCreatedCharacter: CharacterRecord? = null
 
         override fun observeCharacters(): Flow<List<CharacterRecord>> = characters
 
@@ -285,6 +289,7 @@ class CharacterCreationViewModelTest {
 
         override suspend fun createCharacter(character: CharacterRecord): Long {
             val nextId = (characters.value.maxOfOrNull(CharacterRecord::id) ?: 0L) + 1L
+            lastCreatedCharacter = character
             characters.value = characters.value + character.copy(id = nextId)
             return nextId
         }
