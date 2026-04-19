@@ -133,13 +133,13 @@ fun CharacterLevelUpScreen(
                         }
                     }
 
-                    if (state.requiresSubclassSelection) {
-                        InfoSection(title = "Subclass Choice") {
+                    state.subclassRequirement?.let { requirement ->
+                        InfoSection(title = requirement.title) {
                             Text(
-                                text = "This level unlocks a mandatory subclass selection.",
+                                text = requirement.description,
                                 style = MaterialTheme.typography.bodyMedium
                             )
-                            state.subclassOptions.forEach { option ->
+                            requirement.options.forEach { option ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -159,6 +159,13 @@ fun CharacterLevelUpScreen(
                                 }
                             }
                         }
+                    }
+
+                    state.unsupportedRequirements.forEach { requirement ->
+                        MessageCard(
+                            title = requirement.title,
+                            message = requirement.description
+                        )
                     }
 
                     state.blockingMessage?.let { message ->

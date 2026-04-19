@@ -3,6 +3,8 @@ package com.vinni.dndcharacterlist.feature.character.creation
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.vinni.dndcharacterlist.core.navigation.NavigationDestination
+import com.vinni.dndcharacterlist.core.rules.creation.mapper.CharacterCreationMapper
+import com.vinni.dndcharacterlist.feature.character.creation.domain.CreateCharacterUseCase
 import com.vinni.dndcharacterlist.feature.character.creation.presentation.CharacterCreationScreen
 import com.vinni.dndcharacterlist.feature.character.creation.presentation.CharacterCreationViewModel
 import org.koin.androidx.compose.koinViewModel
@@ -21,10 +23,13 @@ fun NavGraphBuilder.characterCreationGraph(
         val viewModel: CharacterCreationViewModel = koinViewModel()
         CharacterCreationScreen(
             state = viewModel.uiState,
-            onBack = onBack,
+            onExitRequest = { viewModel.requestExit(onBack) },
+            onExitDismiss = viewModel::dismissExitConfirmation,
+            onExitConfirm = { viewModel.confirmExit(onBack) },
             onPrevious = viewModel::previousStep,
             onNext = viewModel::nextStep,
             onSubmit = { viewModel.createCharacter(onCharacterCreated) },
+            onRulesetChange = viewModel::updateRuleset,
             onNameChange = viewModel::updateName,
             onRaceChange = viewModel::updateRace,
             onSubraceChange = viewModel::updateSubrace,
@@ -43,5 +48,7 @@ fun NavGraphBuilder.characterCreationGraph(
 }
 
 val characterCreationModule = module {
-    viewModel { CharacterCreationViewModel(get(), get(), get(), get()) }
+    factory { CharacterCreationMapper() }
+    factory { CreateCharacterUseCase(get(), get()) }
+    viewModel { CharacterCreationViewModel(repository = get(), createCharacter = get()) }
 }

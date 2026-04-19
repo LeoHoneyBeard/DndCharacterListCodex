@@ -38,6 +38,10 @@ class CharacterDetailViewModelTest {
                 race = "Elf",
                 characterClass = "Wizard",
                 subclass = "School of Evocation",
+                hitPoints = 27,
+                hitPointsMax = 32,
+                savingThrowProficiencies = listOf("INTELLIGENCE", "WISDOM"),
+                skillProficiencies = listOf("arcana", "sleight_of_hand"),
                 notes = "Knows too much"
             )
         )
@@ -48,6 +52,15 @@ class CharacterDetailViewModelTest {
         val model = requireNotNull(viewModel.uiState.character)
         assertFalse(viewModel.uiState.isLoading)
         assertEquals("Level 4 | Elf | Wizard | School of Evocation", model.subtitle)
+        assertEquals("PHB 2014", model.ruleset)
+        assertEquals(
+            listOf("Class: Wizard", "Subclass: School of Evocation", "Level 4"),
+            model.progressionDetails
+        )
+        assertEquals(27, model.hitPoints)
+        assertEquals(32, model.hitPointsMax)
+        assertEquals(listOf("Intelligence", "Wisdom"), model.savingThrowProficiencies)
+        assertEquals(listOf("Arcana", "Sleight Of Hand"), model.skillProficiencies)
         assertEquals(listOf("STR", "DEX", "CON", "INT", "WIS", "CHA"), model.stats.map(StatValue::label))
         assertEquals(listOf(8, 14, 12, 16, 10, 13), model.stats.map(StatValue::value))
         assertEquals("Knows too much", model.notes)
@@ -83,12 +96,47 @@ class CharacterDetailViewModelTest {
         assertNull(viewModel.uiState.character)
     }
 
+    @Test
+    fun duplicateCreatesNewDraftWithoutChangingSourceCharacter() = runTest {
+        val sourceCharacter = character(
+            id = 7L,
+            level = 4,
+            race = "Elf",
+            characterClass = "Wizard",
+            subclass = "School of Evocation",
+            hitPoints = 27,
+            hitPointsMax = 32,
+            notes = "Knows too much"
+        )
+        val repository = FakeCharacterRepository(sourceCharacter)
+        val viewModel = CharacterDetailViewModel(repository, characterId = 7L)
+        var duplicatedId: Long? = null
+
+        advanceUntilIdle()
+        viewModel.duplicate { newId -> duplicatedId = newId }
+        advanceUntilIdle()
+
+        assertEquals(100L, duplicatedId)
+        assertEquals(7L, repository.sourceCharacter?.id)
+        assertEquals(100L, repository.createdCharacter?.id)
+        assertEquals(sourceCharacter.name, repository.createdCharacter?.name)
+        assertEquals(sourceCharacter.classId, repository.createdCharacter?.classId)
+        assertEquals(sourceCharacter.subclassId, repository.createdCharacter?.subclassId)
+        assertEquals(sourceCharacter.raceId, repository.createdCharacter?.raceId)
+        assertEquals(sourceCharacter.backgroundId, repository.createdCharacter?.backgroundId)
+        assertEquals(sourceCharacter.notes, repository.createdCharacter?.notes)
+    }
+
     private fun character(
         id: Long,
         level: Int,
         race: String,
         characterClass: String,
         subclass: String,
+        hitPoints: Int = 32,
+        hitPointsMax: Int = hitPoints,
+        savingThrowProficiencies: List<String> = emptyList(),
+        skillProficiencies: List<String> = emptyList(),
         notes: String = ""
     ): CharacterRecord {
         return CharacterRecord(
@@ -108,13 +156,16 @@ class CharacterDetailViewModelTest {
             level = level,
             abilityMethod = "STANDARD_ARRAY",
             armorClass = 15,
-            hitPoints = 32,
+            hitPoints = hitPoints,
+            hitPointsMax = hitPointsMax,
             strength = 8,
             dexterity = 14,
             constitution = 12,
             intelligence = 16,
             wisdom = 10,
             charisma = 13,
+            savingThrowProficiencies = savingThrowProficiencies,
+            skillProficiencies = skillProficiencies,
             notes = notes,
             updatedAt = 1L
         )
@@ -122,6 +173,8 @@ class CharacterDetailViewModelTest {
 
     private class FakeCharacterRepository(vararg initialCharacters: CharacterRecord) : CharacterRepository {
         private val characters = MutableStateFlow(initialCharacters.toList())
+        var sourceCharacter: CharacterRecord? = initialCharacters.firstOrNull()
+        var createdCharacter: CharacterRecord? = null
 
         override fun observeCharacters(): Flow<List<CharacterRecord>> = characters
 
@@ -135,7 +188,12 @@ class CharacterDetailViewModelTest {
 
         override suspend fun saveCharacter(character: CharacterUpsert) = Unit
 
-        override suspend fun createCharacter(character: CharacterRecord): Long = error("unused")
+        override suspend fun createCharacter(character: CharacterRecord): Long {
+            val nextId = 100L
+            createdCharacter = character.copy(id = nextId)
+            characters.value = characters.value + requireNotNull(createdCharacter)
+            return nextId
+        }
 
         override suspend fun deleteCharacter(id: Long) = Unit
     }

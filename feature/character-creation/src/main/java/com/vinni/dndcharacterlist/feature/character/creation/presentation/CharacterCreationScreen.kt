@@ -2,6 +2,7 @@
 
 package com.vinni.dndcharacterlist.feature.character.creation.presentation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +41,7 @@ import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityMethod
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityScores
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityType
 import com.vinni.dndcharacterlist.core.rules.creation.model.CharacterCreationStep
+import com.vinni.dndcharacterlist.core.rules.creation.model.Ruleset
 import com.vinni.dndcharacterlist.core.rules.creation.rules.AbilityGenerationRules
 import com.vinni.dndcharacterlist.core.rules.creation.rules.ClassDefinition
 import com.vinni.dndcharacterlist.core.rules.creation.rules.RaceDefinition
@@ -47,10 +50,13 @@ import com.vinni.dndcharacterlist.core.rules.creation.rules.RaceDefinition
 @Composable
 fun CharacterCreationScreen(
     state: CharacterCreationUiState,
-    onBack: () -> Unit,
+    onExitRequest: () -> Unit,
+    onExitDismiss: () -> Unit,
+    onExitConfirm: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSubmit: () -> Unit,
+    onRulesetChange: (Ruleset) -> Unit,
     onNameChange: (String) -> Unit,
     onRaceChange: (String) -> Unit,
     onSubraceChange: (String?) -> Unit,
@@ -65,11 +71,31 @@ fun CharacterCreationScreen(
     onSkillToggle: (String) -> Unit,
     onReplacementSkillChange: (String, String) -> Unit
 ) {
+    BackHandler(onBack = onExitRequest)
+
+    if (state.isDiscardConfirmationVisible) {
+        AlertDialog(
+            onDismissRequest = onExitDismiss,
+            title = { Text("Discard character creation?") },
+            text = { Text("Your in-progress character will be lost if you leave now.") },
+            confirmButton = {
+                TextButton(onClick = onExitConfirm) {
+                    Text("Discard")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onExitDismiss) {
+                    Text("Keep editing")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onExitRequest) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
@@ -93,6 +119,7 @@ fun CharacterCreationScreen(
             when (state.currentStep) {
                 CharacterCreationStep.ORIGIN -> OriginStep(
                     state = state,
+                    onRulesetChange = onRulesetChange,
                     onNameChange = onNameChange,
                     onRaceChange = onRaceChange,
                     onSubraceChange = onSubraceChange,
@@ -190,6 +217,7 @@ private fun StepHeader(currentStep: CharacterCreationStep) {
 @Composable
 private fun OriginStep(
     state: CharacterCreationUiState,
+    onRulesetChange: (Ruleset) -> Unit,
     onNameChange: (String) -> Unit,
     onRaceChange: (String) -> Unit,
     onSubraceChange: (String?) -> Unit,
@@ -201,6 +229,16 @@ private fun OriginStep(
         title = "Origin",
         subtitle = "Choose the PHB 2014 identity basics for the character."
     ) {
+        SelectionChips(
+            label = "Ruleset",
+            options = Ruleset.entries,
+            selectedId = state.draft.ruleset.name,
+            optionLabel = { it.label() },
+            optionId = { it.name },
+            onSelected = { selected ->
+                Ruleset.entries.firstOrNull { it.name == selected }?.let(onRulesetChange)
+            }
+        )
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
             value = state.draft.name,
@@ -454,6 +492,7 @@ private fun SummaryStep(state: CharacterCreationUiState) {
         title = "Summary",
         subtitle = "This step is the only place where creation can be submitted."
     ) {
+        RuleSummaryLine("Ruleset", state.draft.ruleset.label())
         RuleSummaryLine("Name", state.draft.name)
         RuleSummaryLine("Race", listOfNotNull(raceLabel, subraceLabel).joinToString(" / "))
         RuleSummaryLine("Class", listOfNotNull(classLabel, subclassLabel).joinToString(" / "))
@@ -658,6 +697,12 @@ private fun AbilityType.shortLabel(): String {
         AbilityType.INTELLIGENCE -> "INT"
         AbilityType.WISDOM -> "WIS"
         AbilityType.CHARISMA -> "CHA"
+    }
+}
+
+private fun Ruleset.label(): String {
+    return when (this) {
+        Ruleset.PHB_2014 -> "PHB 2014"
     }
 }
 
