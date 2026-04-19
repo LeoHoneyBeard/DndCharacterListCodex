@@ -55,5 +55,5 @@ fun NavGraphBuilder.characterEditorGraph(
 }
 
 val characterEditorModule = module {
-    viewModel { (characterId: Long?) -> CharacterEditorViewModel(get(), characterId) }
+    viewModel { (characterId: Long?) -> CharacterEditorViewModel(get(), get(), characterId) }
 }

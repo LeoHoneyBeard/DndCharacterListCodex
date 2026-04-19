@@ -7,15 +7,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.vinni.dndcharacterlist.core.domain.model.CharacterUpsert
 import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
+import com.vinni.dndcharacterlist.core.rules.creation.model.ValidationIssue
+import com.vinni.dndcharacterlist.core.rules.editor.CharacterEditorDraft
+import com.vinni.dndcharacterlist.core.rules.editor.CharacterEditorRules
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 data class CharacterEditorUiState(
     val characterId: Long? = null,
+    val ruleset: String = "PHB_2014",
     val name: String = "",
     val characterClass: String = "",
     val subclass: String = "",
     val race: String = "",
+    val subraceId: String = "",
     val alignment: String = "",
     val background: String = "",
     val level: String = "1",
@@ -28,6 +33,11 @@ data class CharacterEditorUiState(
     val wisdom: String = "10",
     val charisma: String = "10",
     val notes: String = "",
+    val classPresets: List<String> = emptyList(),
+    val subclassPresets: List<String> = emptyList(),
+    val racePresets: List<String> = emptyList(),
+    val backgroundPresets: List<String> = emptyList(),
+    val validationIssues: List<ValidationIssue> = emptyList(),
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val validationMessage: String? = null,
@@ -35,44 +45,40 @@ data class CharacterEditorUiState(
     val completedAction: EditorCompletedAction? = null
 ) {
     val nameError: String?
-        get() = if (name.isBlank()) "Name is required." else null
+        get() = validationIssue("name_required")
 
     val levelError: String?
-        get() = if (level.toIntOrNull()?.let { it in 1..20 } != true) {
-            "Level must be between 1 and 20."
-        } else {
-            null
-        }
+        get() = validationIssue("level_invalid")
 
     val armorClassError: String?
-        get() = if (armorClass.toIntOrNull()?.let { it >= 0 } != true) {
-            "Armor Class must be 0 or higher."
-        } else {
-            null
-        }
+        get() = validationIssue("armor_class_invalid")
 
     val hitPointsError: String?
-        get() = if (hitPoints.toIntOrNull()?.let { it >= 0 } != true) {
-            "Hit Points must be 0 or higher."
-        } else {
-            null
-        }
+        get() = validationIssue("hit_points_invalid")
 
     val abilityScoreError: String?
-        get() {
-            val stats = listOf(strength, dexterity, constitution, intelligence, wisdom, charisma)
-            return if (stats.any { it.toIntOrNull()?.let { score -> score in 1..30 } != true }) {
-                "Ability scores must be between 1 and 30."
-            } else {
-                null
-            }
-        }
+        get() = validationIssue("ability_scores_invalid")
+
+    val classError: String?
+        get() = validationIssue("class_required")
+
+    val subclassError: String?
+        get() = validationIssue("subclass_required")
+            ?: validationIssue("subclass_invalid")
+            ?: validationIssue("subclass_not_available")
+            ?: validationIssue("subclass_unsupported")
+
+    val raceError: String?
+        get() = validationIssue("race_required") ?: validationIssue("subrace_required")
+
+    val backgroundError: String?
+        get() = validationIssue("background_required")
 
     val canDelete: Boolean
         get() = characterId != null
 
     val isSaveEnabled: Boolean
-        get() = !isSaving && validate() == null
+        get() = !isSaving && validationIssues.isEmpty()
 
     val proficiencyBonus: Int
         get() = ((level.toIntOrNull() ?: 1).coerceIn(1, 20) - 1) / 4 + 2
@@ -83,12 +89,31 @@ data class CharacterEditorUiState(
         }
     }
 
-    fun validate(): String? {
-        return nameError
-            ?: levelError
-            ?: armorClassError
-            ?: hitPointsError
-            ?: abilityScoreError
+    fun toDraft(): CharacterEditorDraft {
+        return CharacterEditorDraft(
+            ruleset = ruleset,
+            name = name,
+            characterClass = characterClass,
+            subclass = subclass,
+            race = race,
+            subraceId = subraceId,
+            alignment = alignment,
+            background = background,
+            level = level,
+            armorClass = armorClass,
+            hitPoints = hitPoints,
+            strength = strength,
+            dexterity = dexterity,
+            constitution = constitution,
+            intelligence = intelligence,
+            wisdom = wisdom,
+            charisma = charisma,
+            notes = notes
+        )
+    }
+
+    private fun validationIssue(key: String): String? {
+        return validationIssues.firstOrNull { it.key == key }?.message
     }
 }
 
@@ -99,11 +124,16 @@ enum class EditorCompletedAction {
 
 class CharacterEditorViewModel(
     private val repository: CharacterRepository,
+    private val editorRules: CharacterEditorRules,
     characterId: Long?,
     private val launchAsync: ((block: suspend () -> Unit) -> Unit)? = null
 ) : ViewModel() {
 
-    var uiState by mutableStateOf(CharacterEditorUiState(isLoading = characterId != null))
+    var uiState by mutableStateOf(
+        CharacterEditorUiState(
+            isLoading = characterId != null
+        ).withRules(editorRules)
+    )
         private set
 
     init {
@@ -111,14 +141,16 @@ class CharacterEditorViewModel(
             launchBlock {
                 val character = repository.getCharacter(characterId)
                 uiState = if (character == null) {
-                    CharacterEditorUiState(characterId = characterId)
+                    CharacterEditorUiState(characterId = characterId).withRules(editorRules)
                 } else {
                     CharacterEditorUiState(
                         characterId = character.id,
+                        ruleset = character.ruleset.ifBlank { "PHB_2014" },
                         name = character.name,
                         characterClass = character.characterClass,
                         subclass = character.subclass,
                         race = character.race,
+                        subraceId = character.subraceId,
                         alignment = character.alignment,
                         background = character.background,
                         level = character.level.toString(),
@@ -131,14 +163,17 @@ class CharacterEditorViewModel(
                         wisdom = character.wisdom.toString(),
                         charisma = character.charisma.toString(),
                         notes = character.notes
-                    )
+                    ).withRules(editorRules)
                 }
             }
         }
     }
 
     fun update(update: CharacterEditorUiState.() -> CharacterEditorUiState) {
-        uiState = uiState.update().clearMessages()
+        uiState = uiState
+            .update()
+            .clearMessages()
+            .withRules(editorRules)
     }
 
     fun save(onSaved: () -> Unit) {
@@ -154,7 +189,7 @@ class CharacterEditorViewModel(
         }
         if (uiState.isSaving) return
 
-        val validationMessage = uiState.validate()
+        val validationMessage = uiState.validationIssues.firstOrNull()?.message
         if (validationMessage != null) {
             uiState = uiState.copy(validationMessage = validationMessage, saveErrorMessage = null)
             return
@@ -163,15 +198,29 @@ class CharacterEditorViewModel(
         uiState = uiState.copy(isSaving = true, saveErrorMessage = null)
         launchBlock {
             try {
+                val resolved = editorRules.resolveSelections(uiState.toDraft())
+                if (resolved == null) {
+                    uiState = uiState.copy(
+                        isSaving = false,
+                        validationMessage = uiState.validationIssues.firstOrNull()?.message
+                    )
+                    return@launchBlock
+                }
                 repository.saveCharacter(
                     CharacterUpsert(
                         id = uiState.characterId,
                         name = uiState.name.trim(),
-                        characterClass = uiState.characterClass.trim(),
-                        subclass = uiState.subclass.trim(),
-                        race = uiState.race.trim(),
+                        ruleset = resolved.ruleset.name,
+                        classId = resolved.classDefinition.id,
+                        characterClass = resolved.classDefinition.name,
+                        subclassId = resolved.subclass?.id ?: "",
+                        subclass = resolved.subclass?.name.orEmpty(),
+                        raceId = resolved.race.id,
+                        race = resolved.race.name,
+                        subraceId = uiState.subraceId,
                         alignment = uiState.alignment.trim(),
-                        background = uiState.background.trim(),
+                        backgroundId = resolved.background.id,
+                        background = resolved.background.name,
                         level = uiState.level.toIntOrNull()?.coerceAtLeast(1) ?: 1,
                         armorClass = uiState.armorClass.toIntOrNull()?.coerceAtLeast(0) ?: 0,
                         hitPoints = uiState.hitPoints.toIntOrNull()?.coerceAtLeast(0) ?: 0,
@@ -235,6 +284,23 @@ private fun CharacterEditorUiState.clearMessages(): CharacterEditorUiState {
         validationMessage = null,
         saveErrorMessage = null,
         completedAction = null
+    )
+}
+
+private fun CharacterEditorUiState.withRules(
+    editorRules: CharacterEditorRules
+): CharacterEditorUiState {
+    val rulesContent = editorRules.rulesContentFor(ruleset)
+    val selectedClass = rulesContent.classes.firstOrNull { candidate ->
+        candidate.name.equals(characterClass.trim(), ignoreCase = true) ||
+            candidate.id.equals(characterClass.trim(), ignoreCase = true)
+    }
+    return copy(
+        classPresets = rulesContent.classes.map { it.name },
+        subclassPresets = selectedClass?.subclasses?.map { it.name }.orEmpty(),
+        racePresets = rulesContent.races.map { it.name },
+        backgroundPresets = rulesContent.backgrounds.map { it.name },
+        validationIssues = editorRules.validate(toDraft())
     )
 }
 
