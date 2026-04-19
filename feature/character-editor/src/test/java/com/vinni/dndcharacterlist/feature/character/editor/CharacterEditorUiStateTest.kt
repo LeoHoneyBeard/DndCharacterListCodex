@@ -1,6 +1,5 @@
 package com.vinni.dndcharacterlist.feature.character.editor
 
-import com.vinni.dndcharacterlist.core.rules.creation.model.ValidationIssue
 import com.vinni.dndcharacterlist.feature.character.editor.presentation.CharacterEditorUiState
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -10,12 +9,8 @@ import org.junit.Test
 
 class CharacterEditorUiStateTest {
     @Test
-    fun saveEnabledRequiresNoValidationIssues() {
-        assertFalse(
-            CharacterEditorUiState(
-                validationIssues = listOf(ValidationIssue("name_required", "Name is required."))
-            ).isSaveEnabled
-        )
+    fun saveEnabledRequiresName() {
+        assertFalse(CharacterEditorUiState(name = "").isSaveEnabled)
         assertTrue(CharacterEditorUiState(name = "Minsc").isSaveEnabled)
     }
 
@@ -25,14 +20,10 @@ class CharacterEditorUiStateTest {
     }
 
     @Test
-    fun invalidLevelSurfacesInlineErrorFromValidationIssues() {
-        val state = CharacterEditorUiState(
-            name = "Shadowheart",
-            level = "99",
-            validationIssues = listOf(ValidationIssue("level_invalid", "Level must be between 1 and 20."))
-        )
+    fun invalidLevelProducesValidationMessage() {
+        val state = CharacterEditorUiState(name = "Shadowheart", level = "99")
 
-        assertEquals("Level must be between 1 and 20.", state.levelError)
+        assertEquals("Level must be between 1 and 20.", state.validate())
     }
 
     @Test
@@ -42,14 +33,7 @@ class CharacterEditorUiStateTest {
             level = "",
             armorClass = "",
             hitPoints = "",
-            strength = "31",
-            validationIssues = listOf(
-                ValidationIssue("name_required", "Name is required."),
-                ValidationIssue("level_invalid", "Level must be between 1 and 20."),
-                ValidationIssue("armor_class_invalid", "Armor Class must be 0 or higher."),
-                ValidationIssue("hit_points_invalid", "Hit Points must be 0 or higher."),
-                ValidationIssue("ability_scores_invalid", "Ability scores must be between 1 and 30.")
-            )
+            strength = "31"
         )
 
         assertEquals("Name is required.", state.nameError)
@@ -78,7 +62,7 @@ class CharacterEditorUiStateTest {
     }
 
     @Test
-    fun validStateHasNoInlineValidationError() {
+    fun validStateHasNoValidationError() {
         val state = CharacterEditorUiState(
             name = "Gale",
             level = "5",
@@ -92,8 +76,7 @@ class CharacterEditorUiStateTest {
             charisma = "10"
         )
 
-        assertNull(state.nameError)
-        assertTrue(state.validationIssues.isEmpty())
+        assertNull(state.validate())
     }
 }
 

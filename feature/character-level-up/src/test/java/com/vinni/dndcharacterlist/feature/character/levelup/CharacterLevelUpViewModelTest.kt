@@ -11,10 +11,8 @@ import com.vinni.dndcharacterlist.core.rules.creation.rules.ClassDefinition
 import com.vinni.dndcharacterlist.core.rules.creation.rules.RaceDefinition
 import com.vinni.dndcharacterlist.core.rules.creation.rules.RulesContent
 import com.vinni.dndcharacterlist.core.rules.creation.rules.SkillDefinition
-import com.vinni.dndcharacterlist.core.rules.creation.rules.SpellcastingDefinition
 import com.vinni.dndcharacterlist.core.rules.creation.rules.SubclassDefinition
 import com.vinni.dndcharacterlist.core.rules.levelup.CharacterLevelUpRules
-import com.vinni.dndcharacterlist.feature.character.levelup.domain.ApplyLevelUpUseCase
 import com.vinni.dndcharacterlist.feature.character.levelup.presentation.CharacterLevelUpViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -33,18 +31,19 @@ class CharacterLevelUpViewModelTest {
         val repository = FakeCharacterRepository(
             baseCharacter(
                 id = 7L,
-                classId = "barbarian",
-                characterClass = "Barbarian",
+                classId = "sorcerer",
+                characterClass = "Sorcerer",
+                subclassId = "wild_magic",
+                subclass = "Wild Magic",
                 constitution = 14,
                 level = 1,
-                hitPoints = 14,
-                hitPointsMax = 14
+                hitPoints = 9,
+                hitPointsMax = 9
             )
         )
         val viewModel = CharacterLevelUpViewModel(
             repository = repository,
             levelUpRules = CharacterLevelUpRules(DefaultReadyRulesRepository()),
-            applyLevelUp = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(DefaultReadyRulesRepository())),
             characterId = 7L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -55,7 +54,7 @@ class CharacterLevelUpViewModelTest {
         val saved = repository.getCharacterBlocking(7L)
         assertTrue(applied)
         assertEquals(2, saved?.level)
-        assertEquals(23, saved?.hitPoints)
+        assertEquals(15, saved?.hitPoints)
         assertFalse(viewModel.uiState.isApplying)
         assertTrue(viewModel.uiState.completed)
     }
@@ -68,12 +67,11 @@ class CharacterLevelUpViewModelTest {
         val viewModel = CharacterLevelUpViewModel(
             repository = repository,
             levelUpRules = CharacterLevelUpRules(RequiredSubclassRulesRepository()),
-            applyLevelUp = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(RequiredSubclassRulesRepository())),
             characterId = 9L,
             launchAsync = { block -> runBlocking { block() } }
         )
 
-        assertTrue(viewModel.uiState.subclassRequirement != null)
+        assertTrue(viewModel.uiState.requiresSubclassSelection)
         assertFalse(viewModel.uiState.canApply)
 
         viewModel.applyLevelUp {}
@@ -90,34 +88,11 @@ class CharacterLevelUpViewModelTest {
     }
 
     @Test
-    fun unsupportedMandatoryChoiceKeepsApplyBlocked() {
-        val repository = FakeCharacterRepository(
-            baseCharacter(id = 11L, classId = "ranger", characterClass = "Ranger", level = 1)
-        )
-        val viewModel = CharacterLevelUpViewModel(
-            repository = repository,
-            levelUpRules = CharacterLevelUpRules(UnsupportedMandatoryChoiceRulesRepository()),
-            applyLevelUp = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(UnsupportedMandatoryChoiceRulesRepository())),
-            characterId = 11L,
-            launchAsync = { block -> runBlocking { block() } }
-        )
-
-        assertFalse(viewModel.uiState.canApply)
-        assertEquals(1, viewModel.uiState.unsupportedRequirements.size)
-        assertEquals("Fighting Style", viewModel.uiState.unsupportedRequirements.single().title)
-
-        viewModel.applyLevelUp {}
-
-        assertEquals(1, repository.getCharacterBlocking(11L)?.level)
-    }
-
-    @Test
     fun missingCharacterShowsBlockingState() {
         val repository = FakeCharacterRepository()
         val viewModel = CharacterLevelUpViewModel(
             repository = repository,
             levelUpRules = CharacterLevelUpRules(DefaultReadyRulesRepository()),
-            applyLevelUp = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(DefaultReadyRulesRepository())),
             characterId = 404L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -132,15 +107,16 @@ class CharacterLevelUpViewModelTest {
         val repository = FakeCharacterRepository(
             baseCharacter(
                 id = 5L,
-                classId = "barbarian",
-                characterClass = "Barbarian",
+                classId = "sorcerer",
+                characterClass = "Sorcerer",
+                subclassId = "wild_magic",
+                subclass = "Wild Magic",
                 level = 1
             )
         )
         val viewModel = CharacterLevelUpViewModel(
             repository = repository,
             levelUpRules = CharacterLevelUpRules(DefaultReadyRulesRepository()),
-            applyLevelUp = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(DefaultReadyRulesRepository())),
             characterId = 5L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -159,15 +135,16 @@ class CharacterLevelUpViewModelTest {
         val repository = CancellingCharacterRepository(
             baseCharacter(
                 id = 1L,
-                classId = "barbarian",
-                characterClass = "Barbarian",
+                classId = "sorcerer",
+                characterClass = "Sorcerer",
+                subclassId = "wild_magic",
+                subclass = "Wild Magic",
                 level = 1
             )
         )
         val viewModel = CharacterLevelUpViewModel(
             repository = repository,
             levelUpRules = CharacterLevelUpRules(DefaultReadyRulesRepository()),
-            applyLevelUp = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(DefaultReadyRulesRepository())),
             characterId = 1L,
             launchAsync = { block -> runBlocking { block() } }
         )
@@ -296,14 +273,15 @@ class CharacterLevelUpViewModelTest {
                 races = listOf(RaceDefinition("elf", "Elf", emptyMap())),
                 classes = listOf(
                     ClassDefinition(
-                        id = "barbarian",
-                        name = "Barbarian",
-                        hitDie = 12,
-                        primaryAbilities = setOf(AbilityType.STRENGTH),
-                        savingThrowProficiencies = setOf(AbilityType.STRENGTH),
+                        id = "sorcerer",
+                        name = "Sorcerer",
+                        hitDie = 6,
+                        primaryAbilities = setOf(AbilityType.CHARISMA),
+                        savingThrowProficiencies = setOf(AbilityType.CHARISMA),
                         skillChoiceCount = 2,
                         skillOptions = emptySet(),
-                        subclassLevel = 3
+                        subclassLevel = 1,
+                        subclasses = listOf(SubclassDefinition("wild_magic", "Wild Magic"))
                     )
                 ),
                 backgrounds = listOf(BackgroundDefinition("sage", "Sage", emptySet())),
@@ -329,34 +307,6 @@ class CharacterLevelUpViewModelTest {
                         subclasses = listOf(
                             SubclassDefinition("storm", "Storm Path"),
                             SubclassDefinition("void", "Void Path")
-                        )
-                    )
-                ),
-                backgrounds = listOf(BackgroundDefinition("sage", "Sage", emptySet())),
-                skills = listOf(SkillDefinition("arcana", "Arcana", AbilityType.INTELLIGENCE))
-            )
-        }
-    }
-
-    private class UnsupportedMandatoryChoiceRulesRepository : RulesRepository {
-        override fun getRuleset(ruleset: Ruleset): RulesContent {
-            return RulesContent(
-                races = listOf(RaceDefinition("elf", "Elf", emptyMap())),
-                classes = listOf(
-                    ClassDefinition(
-                        id = "ranger",
-                        name = "Ranger",
-                        hitDie = 10,
-                        primaryAbilities = setOf(AbilityType.DEXTERITY),
-                        savingThrowProficiencies = setOf(AbilityType.STRENGTH),
-                        skillChoiceCount = 2,
-                        skillOptions = emptySet(),
-                        subclassLevel = 3,
-                        spellcasting = SpellcastingDefinition(
-                            spellcastingAbility = AbilityType.WISDOM,
-                            slotsByLevel = mapOf(
-                                2 to com.vinni.dndcharacterlist.core.rules.creation.model.SpellSlots(firstLevel = 2)
-                            )
                         )
                     )
                 ),

@@ -5,8 +5,6 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.vinni.dndcharacterlist.core.navigation.NavigationDestination
-import com.vinni.dndcharacterlist.feature.character.editor.domain.DeleteCharacterUseCase
-import com.vinni.dndcharacterlist.feature.character.editor.domain.UpdateCharacterUseCase
 import com.vinni.dndcharacterlist.feature.character.editor.presentation.CharacterEditorScreen
 import com.vinni.dndcharacterlist.feature.character.editor.presentation.CharacterEditorViewModel
 import org.koin.androidx.compose.koinViewModel
@@ -33,14 +31,10 @@ fun NavGraphBuilder.characterEditorGraph(
         val viewModel: CharacterEditorViewModel = koinViewModel(parameters = { parametersOf(null as Long?) })
         CharacterEditorScreen(
             state = viewModel.uiState,
-            onExitRequest = { viewModel.requestExit(onBack) },
-            onExitDismiss = viewModel::dismissExitConfirmation,
-            onExitConfirm = { viewModel.confirmExit(onBack) },
+            onBack = onBack,
             onValueChange = viewModel::update,
             onSave = { viewModel.save(onSaved) },
-            onDeleteRequest = viewModel::requestDeleteConfirmation,
-            onDeleteDismiss = viewModel::dismissDeleteConfirmation,
-            onDeleteConfirm = { viewModel.confirmDelete(onDeleted) }
+            onDelete = { viewModel.delete(onDeleted) }
         )
     }
 
@@ -52,29 +46,14 @@ fun NavGraphBuilder.characterEditorGraph(
         val viewModel: CharacterEditorViewModel = koinViewModel(parameters = { parametersOf(characterId) })
         CharacterEditorScreen(
             state = viewModel.uiState,
-            onExitRequest = { viewModel.requestExit(onBack) },
-            onExitDismiss = viewModel::dismissExitConfirmation,
-            onExitConfirm = { viewModel.confirmExit(onBack) },
+            onBack = onBack,
             onValueChange = viewModel::update,
             onSave = { viewModel.save(onSaved) },
-            onDeleteRequest = viewModel::requestDeleteConfirmation,
-            onDeleteDismiss = viewModel::dismissDeleteConfirmation,
-            onDeleteConfirm = { viewModel.confirmDelete(onDeleted) }
+            onDelete = { viewModel.delete(onDeleted) }
         )
     }
 }
 
 val characterEditorModule = module {
-    factory { UpdateCharacterUseCase(get(), get()) }
-    factory { DeleteCharacterUseCase(get()) }
-    viewModel {
-        (characterId: Long?) ->
-        CharacterEditorViewModel(
-            repository = get(),
-            editorRules = get(),
-            updateCharacter = get(),
-            deleteCharacter = get(),
-            characterId = characterId
-        )
-    }
+    viewModel { (characterId: Long?) -> CharacterEditorViewModel(get(), characterId) }
 }

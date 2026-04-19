@@ -33,7 +33,6 @@ android {
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:navigation"))
-    implementation(project(":core:rules"))
     implementation(platform("androidx.compose:compose-bom:2024.02.01"))
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
     implementation("androidx.navigation:navigation-compose:2.7.7")

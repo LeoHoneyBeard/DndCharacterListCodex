@@ -7,9 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
 import com.vinni.dndcharacterlist.core.rules.levelup.CharacterLevelUpRules
-import com.vinni.dndcharacterlist.core.rules.levelup.LevelUpRequirement
-import com.vinni.dndcharacterlist.feature.character.levelup.domain.ApplyLevelUpResult
-import com.vinni.dndcharacterlist.feature.character.levelup.domain.ApplyLevelUpUseCase
+import com.vinni.dndcharacterlist.core.rules.levelup.LevelUpResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -25,8 +23,8 @@ data class CharacterLevelUpUiState(
     val hitPointIncrease: Int = 0,
     val nextHitPoints: Int = 0,
     val nextHitPointsMax: Int = 0,
-    val subclassRequirement: SubclassRequirementUiModel? = null,
-    val unsupportedRequirements: List<UnsupportedRequirementUiModel> = emptyList(),
+    val requiresSubclassSelection: Boolean = false,
+    val subclassOptions: List<SubclassOptionUiModel> = emptyList(),
     val selectedSubclassId: String? = null,
     val isLoading: Boolean = true,
     val isApplying: Boolean = false,
@@ -35,37 +33,24 @@ data class CharacterLevelUpUiState(
     val completed: Boolean = false
 ) {
     private val hasRequiredSubclassSelection: Boolean
-        get() = subclassRequirement == null || !selectedSubclassId.isNullOrBlank()
+        get() = !requiresSubclassSelection || !selectedSubclassId.isNullOrBlank()
 
     val canApply: Boolean
         get() = !isLoading &&
             !isApplying &&
             blockingMessage == null &&
-            unsupportedRequirements.isEmpty() &&
             hasRequiredSubclassSelection &&
             characterId != null
 }
-
-data class SubclassRequirementUiModel(
-    val title: String,
-    val description: String,
-    val options: List<SubclassOptionUiModel>
-)
 
 data class SubclassOptionUiModel(
     val id: String,
     val name: String
 )
 
-data class UnsupportedRequirementUiModel(
-    val title: String,
-    val description: String
-)
-
 class CharacterLevelUpViewModel(
     private val repository: CharacterRepository,
     private val levelUpRules: CharacterLevelUpRules,
-    private val applyLevelUp: ApplyLevelUpUseCase,
     characterId: Long,
     private val launchAsync: ((block: suspend () -> Unit) -> Unit)? = null
 ) : ViewModel() {
@@ -88,8 +73,8 @@ class CharacterLevelUpViewModel(
             val preview = levelUpRules.preview(character)
             val selectedSubclassId = when {
                 character.subclassId.isNotBlank() -> character.subclassId
-                preview.subclassRequirement()?.options?.size == 1 ->
-                    preview.subclassRequirement()?.options?.single()?.id
+                preview.requiresSubclassSelection && preview.availableSubclasses.size == 1 ->
+                    preview.availableSubclasses.single().id
                 else -> null
             }
 
@@ -105,12 +90,9 @@ class CharacterLevelUpViewModel(
                 hitPointIncrease = preview.hitPointIncrease,
                 nextHitPoints = preview.nextHitPoints,
                 nextHitPointsMax = preview.nextHitPointsMax,
-                subclassRequirement = preview.subclassRequirement()?.toUiModel(),
-                unsupportedRequirements = preview.unsupportedRequirements().map { requirement ->
-                    UnsupportedRequirementUiModel(
-                        title = requirement.title,
-                        description = requirement.description
-                    )
+                requiresSubclassSelection = preview.requiresSubclassSelection,
+                subclassOptions = preview.availableSubclasses.map { option ->
+                    SubclassOptionUiModel(id = option.id, name = option.name)
                 },
                 selectedSubclassId = selectedSubclassId,
                 isLoading = false,
@@ -138,26 +120,29 @@ class CharacterLevelUpViewModel(
         uiState = uiState.copy(isApplying = true, actionErrorMessage = null)
         launchBlock {
             try {
-                when (val result = applyLevelUp(characterId, uiState.selectedSubclassId)) {
-                    ApplyLevelUpResult.MissingCharacter -> {
-                        uiState = uiState.copy(
-                            isApplying = false,
-                            actionErrorMessage = "Character no longer exists. Reopen it from the list."
-                        )
-                    }
+                val character = repository.getCharacter(characterId)
+                if (character == null) {
+                    uiState = uiState.copy(
+                        isApplying = false,
+                        actionErrorMessage = "Character no longer exists. Reopen it from the list."
+                    )
+                    return@launchBlock
+                }
 
-                    is ApplyLevelUpResult.Blocked -> {
+                when (val result = levelUpRules.prepareLevelUp(character, uiState.selectedSubclassId)) {
+                    is LevelUpResult.Blocked -> {
                         uiState = uiState.copy(
                             isApplying = false,
-                            blockingMessage = result.previewBlockingReason,
+                            blockingMessage = result.preview.blockingReason,
                             actionErrorMessage = result.reason
                         )
                     }
 
-                    is ApplyLevelUpResult.Applied -> {
+                    is LevelUpResult.Ready -> {
+                        repository.saveCharacter(result.character)
                         uiState = uiState.copy(
                             isApplying = false,
-                            blockingMessage = result.previewBlockingReason,
+                            blockingMessage = result.preview.blockingReason,
                             actionErrorMessage = null,
                             completed = true
                         )
@@ -188,25 +173,5 @@ class CharacterLevelUpViewModel(
 
     private fun launchBlock(block: suspend () -> Unit) {
         launchAsync?.invoke(block) ?: viewModelScope.launch { block() }
-    }
-
-    private fun com.vinni.dndcharacterlist.core.rules.levelup.LevelUpPreview.subclassRequirement():
-        LevelUpRequirement.SubclassSelection? {
-        return requirements.filterIsInstance<LevelUpRequirement.SubclassSelection>().firstOrNull()
-    }
-
-    private fun com.vinni.dndcharacterlist.core.rules.levelup.LevelUpPreview.unsupportedRequirements():
-        List<LevelUpRequirement.UnsupportedChoice> {
-        return requirements.filterIsInstance<LevelUpRequirement.UnsupportedChoice>()
-    }
-
-    private fun LevelUpRequirement.SubclassSelection.toUiModel(): SubclassRequirementUiModel {
-        return SubclassRequirementUiModel(
-            title = title,
-            description = description,
-            options = options.map { option ->
-                SubclassOptionUiModel(id = option.id, name = option.name)
-            }
-        )
     }
 }

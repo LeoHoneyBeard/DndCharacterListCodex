@@ -1,5 +1,7 @@
 package com.vinni.dndcharacterlist.core.rules.levelup
 
+import com.vinni.dndcharacterlist.core.rules.creation.rules.SubclassDefinition
+
 data class LevelUpPreview(
     val currentLevel: Int,
     val nextLevel: Int,
@@ -8,6 +10,7 @@ data class LevelUpPreview(
     val hitPointIncrease: Int,
     val nextHitPoints: Int,
     val nextHitPointsMax: Int,
-    val requirements: List<LevelUpRequirement>,
+    val requiresSubclassSelection: Boolean,
+    val availableSubclasses: List<SubclassDefinition>,
     val blockingReason: String? = null
 )

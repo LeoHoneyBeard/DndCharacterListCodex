@@ -369,7 +369,7 @@ Template rules:
 For rules-driven feature work:
 - add or update tests for the triggering milestone and its blocking edge cases;
 - add or update tests for invalid progression attempts, including "cannot persist until required choice is made" scenarios;
-- verify touched modules with module-local commands from `VERIFICATION_COMMANDS.md`;
+- verify touched modules with module-local commands from `LOCAL_COMMANDS.md`;
 - call out intentionally deferred rules coverage in the final report.
 
 General verification rules:
@@ -410,7 +410,7 @@ Final task reports should state:
 
 ## Project-Specific Overrides
 
-- Define concrete module commands and command mapping in `VERIFICATION_COMMANDS.md`.
+- Define concrete module commands and command mapping in `LOCAL_COMMANDS.md`.
 - Define project-specific secrets handling in `SECRETS.md`.
 - Keep review mode strict for code review tasks.
 - Keep Fast Mode only for 1-2 file changes.

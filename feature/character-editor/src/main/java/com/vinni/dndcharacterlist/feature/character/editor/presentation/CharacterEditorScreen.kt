@@ -1,6 +1,5 @@
 package com.vinni.dndcharacterlist.feature.character.editor.presentation
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +19,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -42,58 +40,16 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun CharacterEditorScreen(
     state: CharacterEditorUiState,
-    onExitRequest: () -> Unit,
-    onExitDismiss: () -> Unit,
-    onExitConfirm: () -> Unit,
+    onBack: () -> Unit,
     onValueChange: (CharacterEditorUiState.() -> CharacterEditorUiState) -> Unit,
     onSave: () -> Unit,
-    onDeleteRequest: () -> Unit,
-    onDeleteDismiss: () -> Unit,
-    onDeleteConfirm: () -> Unit
+    onDelete: () -> Unit
 ) {
-    BackHandler(onBack = onExitRequest)
-
-    if (state.isDiscardConfirmationVisible) {
-        AlertDialog(
-            onDismissRequest = onExitDismiss,
-            title = { Text("Discard changes?") },
-            text = { Text("Your unsaved edits will be lost if you leave now.") },
-            confirmButton = {
-                TextButton(onClick = onExitConfirm) {
-                    Text("Discard")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onExitDismiss) {
-                    Text("Keep editing")
-                }
-            }
-        )
-    }
-
-    if (state.isDeleteConfirmationVisible) {
-        AlertDialog(
-            onDismissRequest = onDeleteDismiss,
-            title = { Text("Delete character?") },
-            text = { Text("This will permanently remove the character from your list.") },
-            confirmButton = {
-                TextButton(onClick = onDeleteConfirm) {
-                    Text("Delete")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDeleteDismiss) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = onExitRequest) {
+                    IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
@@ -140,42 +96,22 @@ fun CharacterEditorScreen(
                     PresetTextField(
                         value = state.characterClass,
                         label = "Class",
-                        presets = state.classPresets,
-                        onValueChange = { value -> onValueChange { copy(characterClass = value, subclass = "") } },
-                        error = state.classError
+                        presets = DndEditorPresets.Classes,
+                        onValueChange = { value -> onValueChange { copy(characterClass = value) } }
                     )
                     OutlinedTextField(
                         modifier = Modifier.fillMaxWidth(),
                         value = state.subclass,
                         onValueChange = { value -> onValueChange { copy(subclass = value) } },
                         label = { Text("Subclass") },
-                        supportingText = {
-                            Text(
-                                state.subclassError
-                                    ?: if (state.subclassPresets.isEmpty()) {
-                                        "Leave blank until the chosen class reaches a subclass level."
-                                    } else {
-                                        "Choose a supported subclass for the current class and level."
-                                    }
-                            )
-                        },
-                        isError = state.subclassError != null,
+                        supportingText = { Text("Optional, but useful once the class is chosen.") },
                         singleLine = true
                     )
-                    if (state.subclassPresets.isNotEmpty()) {
-                        ChipFlowRow(items = state.subclassPresets) { preset ->
-                            AssistChip(
-                                onClick = { onValueChange { copy(subclass = preset) } },
-                                label = { Text(preset) }
-                            )
-                        }
-                    }
                     PresetTextField(
                         value = state.race,
                         label = "Race",
-                        presets = state.racePresets,
-                        onValueChange = { value -> onValueChange { copy(race = value) } },
-                        error = state.raceError
+                        presets = DndEditorPresets.Races,
+                        onValueChange = { value -> onValueChange { copy(race = value) } }
                     )
                     PresetTextField(
                         value = state.alignment,
@@ -186,9 +122,8 @@ fun CharacterEditorScreen(
                     PresetTextField(
                         value = state.background,
                         label = "Background",
-                        presets = state.backgroundPresets,
-                        onValueChange = { value -> onValueChange { copy(background = value) } },
-                        error = state.backgroundError
+                        presets = DndEditorPresets.Backgrounds,
+                        onValueChange = { value -> onValueChange { copy(background = value) } }
                     )
                 }
 
@@ -327,7 +262,7 @@ fun CharacterEditorScreen(
                     TextButton(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !state.isSaving,
-                        onClick = onDeleteRequest
+                        onClick = onDelete
                     ) {
                         Text("Delete character")
                     }
@@ -410,8 +345,7 @@ private fun PresetTextField(
     value: String,
     label: String,
     presets: List<String>,
-    onValueChange: (String) -> Unit,
-    error: String? = null
+    onValueChange: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
@@ -419,8 +353,6 @@ private fun PresetTextField(
             value = value,
             onValueChange = onValueChange,
             label = { Text(label) },
-            supportingText = { error?.let { Text(it) } },
-            isError = error != null,
             singleLine = true
         )
         ChipFlowRow(items = presets) { preset ->
@@ -467,6 +399,8 @@ private fun formatAbilityModifier(modifier: Int?): String {
 }
 
 private object DndEditorPresets {
+    val Classes = listOf("Fighter", "Wizard", "Rogue", "Cleric", "Paladin", "Ranger")
+    val Races = listOf("Human", "Elf", "Dwarf", "Halfling", "Tiefling", "Dragonborn")
     val Alignments = listOf(
         "Lawful Good",
         "Neutral Good",
@@ -475,5 +409,6 @@ private object DndEditorPresets {
         "True Neutral",
         "Chaotic Neutral"
     )
+    val Backgrounds = listOf("Soldier", "Sage", "Acolyte", "Criminal", "Noble", "Outlander")
 }
 
