@@ -138,6 +138,58 @@ class CharacterLevelUpRulesTest {
         )
     }
 
+    @Test
+    fun previewBlocksUnsupportedClassUnderActiveRuleset() {
+        val rules = CharacterLevelUpRules(Phb2014RulesRepository(), HitPointEngine())
+        val character = baseCharacter(
+            classId = "artificer",
+            characterClass = "Artificer",
+            level = 1
+        )
+
+        val preview = rules.preview(character)
+
+        assertEquals("This character's class is not supported by the active rules.", preview.blockingReason)
+        assertTrue(preview.requirements.isEmpty())
+        assertEquals(0, preview.hitPointIncrease)
+    }
+
+    @Test
+    fun previewBlocksMaxLevelCharacter() {
+        val rules = CharacterLevelUpRules(Phb2014RulesRepository(), HitPointEngine())
+        val character = baseCharacter(
+            classId = "wizard",
+            characterClass = "Wizard",
+            level = 20
+        )
+
+        val preview = rules.preview(character)
+
+        assertEquals("Character is already at the maximum level.", preview.blockingReason)
+        assertEquals(20, preview.currentLevel)
+        assertEquals(20, preview.nextLevel)
+    }
+
+    @Test
+    fun previewBlocksMissingSubclassDefinitionsExplicitly() {
+        val rules = CharacterLevelUpRules(MissingSubclassDefinitionsRepository(), HitPointEngine())
+        val character = baseCharacter(
+            classId = "test_mage",
+            characterClass = "Test Mage",
+            level = 1
+        )
+
+        val preview = rules.preview(character)
+
+        assertEquals(null, preview.blockingReason)
+        val requirement = preview.requirements.first() as LevelUpRequirement.UnsupportedChoice
+        assertEquals("Subclass Choice", requirement.title)
+        assertEquals(
+            "This class needs a subclass at level 2, but the active rules content does not define those subclasses yet.",
+            requirement.description
+        )
+    }
+
     private fun baseCharacter(
         classId: String = "wizard",
         characterClass: String = "Wizard",
@@ -223,6 +275,29 @@ class CharacterLevelUpRulesTest {
                             spellcastingAbility = AbilityType.WISDOM,
                             slotsByLevel = mapOf(2 to com.vinni.dndcharacterlist.core.rules.creation.model.SpellSlots(firstLevel = 2))
                         )
+                    )
+                ),
+                backgrounds = listOf(BackgroundDefinition("sage", "Sage", emptySet())),
+                skills = listOf(SkillDefinition("arcana", "Arcana", AbilityType.INTELLIGENCE))
+            )
+        }
+    }
+
+    private class MissingSubclassDefinitionsRepository : RulesRepository {
+        override fun getRuleset(ruleset: Ruleset): RulesContent {
+            return RulesContent(
+                races = listOf(RaceDefinition("elf", "Elf", emptyMap())),
+                classes = listOf(
+                    ClassDefinition(
+                        id = "test_mage",
+                        name = "Test Mage",
+                        hitDie = 8,
+                        primaryAbilities = setOf(AbilityType.INTELLIGENCE),
+                        savingThrowProficiencies = setOf(AbilityType.INTELLIGENCE),
+                        skillChoiceCount = 2,
+                        skillOptions = emptySet(),
+                        subclassLevel = 2,
+                        subclasses = emptyList()
                     )
                 ),
                 backgrounds = listOf(BackgroundDefinition("sage", "Sage", emptySet())),

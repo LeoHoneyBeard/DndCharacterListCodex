@@ -11,6 +11,7 @@ import com.vinni.dndcharacterlist.core.rules.creation.rules.ClassDefinition
 import com.vinni.dndcharacterlist.core.rules.creation.rules.RaceDefinition
 import com.vinni.dndcharacterlist.core.rules.creation.rules.RulesContent
 import com.vinni.dndcharacterlist.core.rules.creation.rules.SkillDefinition
+import com.vinni.dndcharacterlist.core.rules.creation.rules.SubclassDefinition
 import com.vinni.dndcharacterlist.core.rules.levelup.CharacterLevelUpRules
 import com.vinni.dndcharacterlist.feature.character.levelup.domain.ApplyLevelUpResult
 import com.vinni.dndcharacterlist.feature.character.levelup.domain.ApplyLevelUpUseCase
@@ -57,6 +58,31 @@ class ApplyLevelUpUseCaseTest {
         assertTrue(result is ApplyLevelUpResult.MissingCharacter)
     }
 
+    @Test
+    fun returnsBlockedResultWithoutPersistingWhenSubclassChoiceIsStillRequired() = runBlocking {
+        val repository = FakeCharacterRepository(
+            baseCharacter(
+                id = 7L,
+                classId = "test_mage",
+                characterClass = "Test Mage",
+                level = 1,
+                hitPoints = 8,
+                hitPointsMax = 8
+            )
+        )
+        val useCase = ApplyLevelUpUseCase(repository, CharacterLevelUpRules(RequiredSubclassRulesRepository()))
+
+        val result = useCase(7L, selectedSubclassId = null)
+
+        assertTrue(result is ApplyLevelUpResult.Blocked)
+        val blocked = result as ApplyLevelUpResult.Blocked
+        assertEquals("Choose a subclass before applying the level up.", blocked.reason)
+        assertEquals(0, repository.saveCalls)
+        val saved = repository.getCharacterBlocking(7L)
+        assertEquals(1, saved?.level)
+        assertEquals("", saved?.subclassId)
+    }
+
     private fun baseCharacter(
         id: Long,
         classId: String,
@@ -100,6 +126,8 @@ class ApplyLevelUpUseCaseTest {
 
     private class FakeCharacterRepository(vararg initialCharacters: CharacterRecord) : CharacterRepository {
         private val characters = MutableStateFlow(initialCharacters.toList())
+        var saveCalls: Int = 0
+            private set
 
         override fun observeCharacters(): Flow<List<CharacterRecord>> = characters
 
@@ -112,6 +140,7 @@ class ApplyLevelUpUseCaseTest {
         }
 
         override suspend fun saveCharacter(character: CharacterUpsert) {
+            saveCalls += 1
             val existing = characters.value.firstOrNull { it.id == character.id } ?: error("missing character")
             val updated = existing.copy(
                 level = character.level,
@@ -144,6 +173,32 @@ class ApplyLevelUpUseCaseTest {
                         skillChoiceCount = 2,
                         skillOptions = emptySet(),
                         subclassLevel = 3
+                    )
+                ),
+                backgrounds = listOf(BackgroundDefinition("sage", "Sage", emptySet())),
+                skills = listOf(SkillDefinition("arcana", "Arcana", AbilityType.INTELLIGENCE))
+            )
+        }
+    }
+
+    private class RequiredSubclassRulesRepository : RulesRepository {
+        override fun getRuleset(ruleset: Ruleset): RulesContent {
+            return RulesContent(
+                races = listOf(RaceDefinition("elf", "Elf", emptyMap())),
+                classes = listOf(
+                    ClassDefinition(
+                        id = "test_mage",
+                        name = "Test Mage",
+                        hitDie = 8,
+                        primaryAbilities = setOf(AbilityType.INTELLIGENCE),
+                        savingThrowProficiencies = setOf(AbilityType.INTELLIGENCE),
+                        skillChoiceCount = 2,
+                        skillOptions = emptySet(),
+                        subclassLevel = 2,
+                        subclasses = listOf(
+                            SubclassDefinition("storm", "Storm Path"),
+                            SubclassDefinition("void", "Void Path")
+                        )
                     )
                 ),
                 backgrounds = listOf(BackgroundDefinition("sage", "Sage", emptySet())),
