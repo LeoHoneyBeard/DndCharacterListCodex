@@ -10,7 +10,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CharacterEditorViewModelTest {
@@ -105,6 +107,69 @@ class CharacterEditorViewModelTest {
     }
 
     @Test
+    fun dirtyEditorRequiresExplicitDiscardConfirmation() {
+        val repository = FakeCharacterRepository(
+            existingCharacter = record(
+                id = 42L,
+                name = "Aylin",
+                characterClass = "Wizard",
+                race = "Human",
+                background = "Sage"
+            )
+        )
+        val viewModel = CharacterEditorViewModel(
+            repository = repository,
+            editorRules = CharacterEditorRules(Phb2014RulesRepository()),
+            characterId = 42L,
+            launchAsync = { block -> runBlocking { block() } }
+        )
+        var exited = false
+
+        viewModel.update { copy(name = "Aylin Stormweaver") }
+        viewModel.requestExit { exited = true }
+
+        assertTrue(viewModel.uiState.hasUnsavedChanges)
+        assertTrue(viewModel.uiState.isDiscardConfirmationVisible)
+        assertFalse(exited)
+
+        viewModel.dismissExitConfirmation()
+        assertFalse(viewModel.uiState.isDiscardConfirmationVisible)
+
+        viewModel.requestExit { exited = true }
+        viewModel.confirmExit { exited = true }
+
+        assertTrue(exited)
+    }
+
+    @Test
+    fun successfulSaveAllowsExitWithoutPrompt() {
+        val repository = FakeCharacterRepository(
+            existingCharacter = record(
+                id = 42L,
+                name = "Aylin",
+                characterClass = "Wizard",
+                race = "Human",
+                background = "Sage"
+            )
+        )
+        val viewModel = CharacterEditorViewModel(
+            repository = repository,
+            editorRules = CharacterEditorRules(Phb2014RulesRepository()),
+            characterId = 42L,
+            launchAsync = { block -> runBlocking { block() } }
+        )
+        var exited = false
+
+        viewModel.update { copy(name = "Aylin Stormweaver") }
+        viewModel.save {}
+        viewModel.requestExit { exited = true }
+
+        assertFalse(viewModel.uiState.isDiscardConfirmationVisible)
+        assertFalse(viewModel.uiState.hasUnsavedChanges)
+        assertTrue(exited)
+    }
+
+    @Test
     fun deleteCallbackFailureIsRecoverableWithoutSecondDelete() {
         val repository = FakeCharacterRepository()
         val viewModel = CharacterEditorViewModel(
@@ -165,21 +230,52 @@ class CharacterEditorViewModelTest {
     }
 
     private class FakeCharacterRepository(
-        private val deleteError: IllegalArgumentException? = null
+        private val deleteError: IllegalArgumentException? = null,
+        existingCharacter: CharacterRecord? = null
     ) : CharacterRepository {
         var saveCalls = 0
         var deleteCalls = 0
         var lastSavedCharacter: CharacterUpsert? = null
+        private var storedCharacter = existingCharacter
 
         override fun observeCharacters(): Flow<List<CharacterRecord>> = MutableStateFlow(emptyList())
 
         override fun observeCharacter(id: Long): Flow<CharacterRecord?> = MutableStateFlow(null)
 
-        override suspend fun getCharacter(id: Long): CharacterRecord? = null
+        override suspend fun getCharacter(id: Long): CharacterRecord? = storedCharacter?.takeIf { it.id == id }
 
         override suspend fun saveCharacter(character: CharacterUpsert) {
             saveCalls += 1
             lastSavedCharacter = character
+            val savedId = character.id ?: storedCharacter?.id ?: 1L
+            storedCharacter = CharacterRecord(
+                id = savedId,
+                ruleset = character.ruleset ?: "PHB_2014",
+                name = character.name,
+                classId = character.classId ?: "",
+                characterClass = character.characterClass,
+                subclassId = character.subclassId ?: "",
+                subclass = character.subclass,
+                raceId = character.raceId ?: "",
+                race = character.race,
+                subraceId = character.subraceId ?: "",
+                alignment = character.alignment,
+                backgroundId = character.backgroundId ?: "",
+                background = character.background,
+                level = character.level,
+                armorClass = character.armorClass,
+                hitPoints = character.hitPoints,
+                strength = character.strength,
+                dexterity = character.dexterity,
+                constitution = character.constitution,
+                intelligence = character.intelligence,
+                wisdom = character.wisdom,
+                charisma = character.charisma,
+                notes = character.notes,
+                savingThrowProficiencies = emptyList(),
+                skillProficiencies = emptyList(),
+                updatedAt = 0L
+            )
         }
 
         override suspend fun createCharacter(character: CharacterRecord): Long = 1L
@@ -187,6 +283,49 @@ class CharacterEditorViewModelTest {
         override suspend fun deleteCharacter(id: Long) {
             deleteCalls += 1
             deleteError?.let { throw it }
+            if (storedCharacter?.id == id) {
+                storedCharacter = null
+            }
         }
+    }
+
+    private fun record(
+        id: Long,
+        name: String,
+        characterClass: String,
+        race: String,
+        background: String,
+        level: Int = 1,
+        armorClass: Int = 12,
+        hitPoints: Int = 8
+    ): CharacterRecord {
+        return CharacterRecord(
+            id = id,
+            name = name,
+            ruleset = "PHB_2014",
+            classId = characterClass.lowercase(),
+            characterClass = characterClass,
+            subclassId = "",
+            subclass = "",
+            raceId = race.lowercase(),
+            race = race,
+            subraceId = "",
+            alignment = "",
+            backgroundId = background.lowercase(),
+            background = background,
+            level = level,
+            armorClass = armorClass,
+            hitPoints = hitPoints,
+            strength = 10,
+            dexterity = 14,
+            constitution = 12,
+            intelligence = 10,
+            wisdom = 13,
+            charisma = 8,
+            notes = "",
+            savingThrowProficiencies = emptyList(),
+            skillProficiencies = emptyList(),
+            updatedAt = 0L
+        )
     }
 }

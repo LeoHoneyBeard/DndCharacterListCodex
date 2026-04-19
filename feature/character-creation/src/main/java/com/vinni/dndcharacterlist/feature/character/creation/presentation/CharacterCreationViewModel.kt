@@ -27,6 +27,8 @@ data class CharacterCreationUiState(
     val derived: DerivedCharacterStats = DerivedCharacterStats(),
     val rulesContent: RulesContent,
     val isSubmitting: Boolean = false,
+    val hasUnsavedChanges: Boolean = false,
+    val isDiscardConfirmationVisible: Boolean = false,
     val stepError: String? = null,
     val createdCharacterId: Long? = null
 )
@@ -40,11 +42,12 @@ class CharacterCreationViewModel(
 ) : ViewModel() {
 
     private val rulesContent = repository.getRuleset(Ruleset.PHB_2014)
+    private var persistedDraft = CharacterCreationDraft()
 
     var uiState by mutableStateOf(
         CharacterCreationUiState(
             rulesContent = rulesContent
-        ).recalculate(rulesEngine)
+        ).recalculate(rulesEngine).withDirtyState()
     )
         private set
 
@@ -144,6 +147,34 @@ class CharacterCreationViewModel(
         uiState = uiState.copy(currentStep = previous, stepError = null)
     }
 
+    fun requestExit(onExit: () -> Unit) {
+        when {
+            uiState.isDiscardConfirmationVisible -> {
+                uiState = uiState.copy(isDiscardConfirmationVisible = false)
+            }
+
+            uiState.isSubmitting -> Unit
+            uiState.hasUnsavedChanges -> {
+                uiState = uiState.copy(
+                    isDiscardConfirmationVisible = true,
+                    stepError = null
+                )
+            }
+
+            else -> onExit()
+        }
+    }
+
+    fun dismissExitConfirmation() {
+        if (!uiState.isDiscardConfirmationVisible) return
+        uiState = uiState.copy(isDiscardConfirmationVisible = false)
+    }
+
+    fun confirmExit(onExit: () -> Unit) {
+        uiState = uiState.copy(isDiscardConfirmationVisible = false)
+        onExit()
+    }
+
     fun createCharacter(onCreated: (Long) -> Unit) {
         if (uiState.currentStep != CharacterCreationStep.SUMMARY) return
         if (uiState.isSubmitting) return
@@ -184,11 +215,13 @@ class CharacterCreationViewModel(
                 return@launcher
             }
 
+            persistedDraft = uiState.draft
             uiState = uiState.copy(
                 isSubmitting = false,
+                isDiscardConfirmationVisible = false,
                 createdCharacterId = characterId,
                 stepError = null
-            )
+            ).withDirtyState()
             try {
                 onCreated(characterId)
             } catch (error: CancellationException) {
@@ -202,8 +235,9 @@ class CharacterCreationViewModel(
     private fun updateDraft(update: CharacterCreationDraft.() -> CharacterCreationDraft) {
         uiState = uiState.copy(
             draft = uiState.draft.update(),
+            isDiscardConfirmationVisible = false,
             stepError = null
-        ).recalculate(rulesEngine)
+        ).recalculate(rulesEngine).withDirtyState()
     }
 
     private fun validateCurrentStep(): String? {
@@ -250,6 +284,12 @@ class CharacterCreationViewModel(
         val classId = uiState.draft.classId ?: return false
         val classDefinition = uiState.rulesContent.classes.firstOrNull { it.id == classId } ?: return false
         return classDefinition.subclassLevel == 1
+    }
+
+    private fun CharacterCreationUiState.withDirtyState(): CharacterCreationUiState {
+        return copy(
+            hasUnsavedChanges = createdCharacterId == null && draft != persistedDraft
+        )
     }
 }
 

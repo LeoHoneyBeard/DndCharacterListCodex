@@ -21,7 +21,9 @@ fun NavGraphBuilder.characterCreationGraph(
         val viewModel: CharacterCreationViewModel = koinViewModel()
         CharacterCreationScreen(
             state = viewModel.uiState,
-            onBack = onBack,
+            onExitRequest = { viewModel.requestExit(onBack) },
+            onExitDismiss = viewModel::dismissExitConfirmation,
+            onExitConfirm = { viewModel.confirmExit(onBack) },
             onPrevious = viewModel::previousStep,
             onNext = viewModel::nextStep,
             onSubmit = { viewModel.createCharacter(onCharacterCreated) },

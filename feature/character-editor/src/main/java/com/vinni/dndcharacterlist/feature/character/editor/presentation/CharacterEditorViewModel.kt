@@ -40,7 +40,9 @@ data class CharacterEditorUiState(
     val validationIssues: List<ValidationIssue> = emptyList(),
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
+    val hasUnsavedChanges: Boolean = false,
     val isDeleteConfirmationVisible: Boolean = false,
+    val isDiscardConfirmationVisible: Boolean = false,
     val validationMessage: String? = null,
     val saveErrorMessage: String? = null,
     val completedAction: EditorCompletedAction? = null
@@ -129,11 +131,12 @@ class CharacterEditorViewModel(
     characterId: Long?,
     private val launchAsync: ((block: suspend () -> Unit) -> Unit)? = null
 ) : ViewModel() {
+    private var persistedDraft = CharacterEditorUiState().toDraft()
 
     var uiState by mutableStateOf(
         CharacterEditorUiState(
             isLoading = characterId != null
-        ).withRules(editorRules)
+        ).withRules(editorRules).withDirtyState()
     )
         private set
 
@@ -142,9 +145,10 @@ class CharacterEditorViewModel(
             launchBlock {
                 val character = repository.getCharacter(characterId)
                 uiState = if (character == null) {
-                    CharacterEditorUiState(characterId = characterId).withRules(editorRules)
+                    persistedDraft = CharacterEditorUiState(characterId = characterId).toDraft()
+                    CharacterEditorUiState(characterId = characterId).withRules(editorRules).withDirtyState()
                 } else {
-                    CharacterEditorUiState(
+                    val loadedState = CharacterEditorUiState(
                         characterId = character.id,
                         ruleset = character.ruleset.ifBlank { "PHB_2014" },
                         name = character.name,
@@ -165,6 +169,8 @@ class CharacterEditorViewModel(
                         charisma = character.charisma.toString(),
                         notes = character.notes
                     ).withRules(editorRules)
+                    persistedDraft = loadedState.toDraft()
+                    loadedState.withDirtyState()
                 }
             }
         }
@@ -175,6 +181,40 @@ class CharacterEditorViewModel(
             .update()
             .clearMessages()
             .withRules(editorRules)
+            .withDirtyState()
+    }
+
+    fun requestExit(onExit: () -> Unit) {
+        when {
+            uiState.isDeleteConfirmationVisible -> {
+                uiState = uiState.copy(isDeleteConfirmationVisible = false)
+            }
+
+            uiState.isDiscardConfirmationVisible -> {
+                uiState = uiState.copy(isDiscardConfirmationVisible = false)
+            }
+
+            uiState.isSaving -> Unit
+            uiState.hasUnsavedChanges -> {
+                uiState = uiState.copy(
+                    isDiscardConfirmationVisible = true,
+                    validationMessage = null,
+                    saveErrorMessage = null
+                )
+            }
+
+            else -> onExit()
+        }
+    }
+
+    fun dismissExitConfirmation() {
+        if (!uiState.isDiscardConfirmationVisible) return
+        uiState = uiState.copy(isDiscardConfirmationVisible = false)
+    }
+
+    fun confirmExit(onExit: () -> Unit) {
+        uiState = uiState.copy(isDiscardConfirmationVisible = false)
+        onExit()
     }
 
     fun save(onSaved: () -> Unit) {
@@ -234,7 +274,11 @@ class CharacterEditorViewModel(
                         notes = uiState.notes.trim()
                     )
                 )
-                uiState = uiState.copy(completedAction = EditorCompletedAction.SAVED)
+                persistedDraft = uiState.toDraft()
+                uiState = uiState.copy(
+                    completedAction = EditorCompletedAction.SAVED,
+                    isDiscardConfirmationVisible = false
+                ).withDirtyState()
                 try {
                     onSaved()
                 } catch (error: CancellationException) {
@@ -254,6 +298,7 @@ class CharacterEditorViewModel(
         if (!uiState.canDelete || uiState.isSaving) return
         uiState = uiState.copy(
             isDeleteConfirmationVisible = true,
+            isDiscardConfirmationVisible = false,
             validationMessage = null,
             saveErrorMessage = null
         )
@@ -305,11 +350,18 @@ class CharacterEditorViewModel(
     private fun launchBlock(block: suspend () -> Unit) {
         launchAsync?.invoke(block) ?: viewModelScope.launch { block() }
     }
+
+    private fun CharacterEditorUiState.withDirtyState(): CharacterEditorUiState {
+        return copy(
+            hasUnsavedChanges = completedAction == null && toDraft() != persistedDraft
+        )
+    }
 }
 
 private fun CharacterEditorUiState.clearMessages(): CharacterEditorUiState {
     return copy(
         isDeleteConfirmationVisible = false,
+        isDiscardConfirmationVisible = false,
         validationMessage = null,
         saveErrorMessage = null,
         completedAction = null

@@ -31,7 +31,9 @@ fun NavGraphBuilder.characterEditorGraph(
         val viewModel: CharacterEditorViewModel = koinViewModel(parameters = { parametersOf(null as Long?) })
         CharacterEditorScreen(
             state = viewModel.uiState,
-            onBack = onBack,
+            onExitRequest = { viewModel.requestExit(onBack) },
+            onExitDismiss = viewModel::dismissExitConfirmation,
+            onExitConfirm = { viewModel.confirmExit(onBack) },
             onValueChange = viewModel::update,
             onSave = { viewModel.save(onSaved) },
             onDeleteRequest = viewModel::requestDeleteConfirmation,
@@ -48,7 +50,9 @@ fun NavGraphBuilder.characterEditorGraph(
         val viewModel: CharacterEditorViewModel = koinViewModel(parameters = { parametersOf(characterId) })
         CharacterEditorScreen(
             state = viewModel.uiState,
-            onBack = onBack,
+            onExitRequest = { viewModel.requestExit(onBack) },
+            onExitDismiss = viewModel::dismissExitConfirmation,
+            onExitConfirm = { viewModel.confirmExit(onBack) },
             onValueChange = viewModel::update,
             onSave = { viewModel.save(onSaved) },
             onDeleteRequest = viewModel::requestDeleteConfirmation,

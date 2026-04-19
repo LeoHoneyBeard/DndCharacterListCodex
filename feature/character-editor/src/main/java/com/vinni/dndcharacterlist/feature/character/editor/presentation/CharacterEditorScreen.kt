@@ -1,5 +1,6 @@
 package com.vinni.dndcharacterlist.feature.character.editor.presentation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,13 +42,35 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun CharacterEditorScreen(
     state: CharacterEditorUiState,
-    onBack: () -> Unit,
+    onExitRequest: () -> Unit,
+    onExitDismiss: () -> Unit,
+    onExitConfirm: () -> Unit,
     onValueChange: (CharacterEditorUiState.() -> CharacterEditorUiState) -> Unit,
     onSave: () -> Unit,
     onDeleteRequest: () -> Unit,
     onDeleteDismiss: () -> Unit,
     onDeleteConfirm: () -> Unit
 ) {
+    BackHandler(onBack = onExitRequest)
+
+    if (state.isDiscardConfirmationVisible) {
+        AlertDialog(
+            onDismissRequest = onExitDismiss,
+            title = { Text("Discard changes?") },
+            text = { Text("Your unsaved edits will be lost if you leave now.") },
+            confirmButton = {
+                TextButton(onClick = onExitConfirm) {
+                    Text("Discard")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onExitDismiss) {
+                    Text("Keep editing")
+                }
+            }
+        )
+    }
+
     if (state.isDeleteConfirmationVisible) {
         AlertDialog(
             onDismissRequest = onDeleteDismiss,
@@ -70,7 +93,7 @@ fun CharacterEditorScreen(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onExitRequest) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"

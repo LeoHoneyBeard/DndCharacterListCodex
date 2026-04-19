@@ -123,6 +123,56 @@ class CharacterCreationViewModelTest {
     }
 
     @Test
+    fun dirtyCreationRequiresExplicitDiscardConfirmation() {
+        var exited = false
+
+        viewModel.updateName("Aylin")
+        viewModel.requestExit { exited = true }
+
+        assertTrue(viewModel.uiState.hasUnsavedChanges)
+        assertTrue(viewModel.uiState.isDiscardConfirmationVisible)
+        assertFalse(exited)
+
+        viewModel.dismissExitConfirmation()
+        assertFalse(viewModel.uiState.isDiscardConfirmationVisible)
+
+        viewModel.requestExit { exited = true }
+        viewModel.confirmExit { exited = true }
+
+        assertTrue(exited)
+    }
+
+    @Test
+    fun successfulCreateAllowsExitWithoutPrompt() {
+        var exited = false
+
+        viewModel.updateName("Aylin")
+        viewModel.updateRace("elf")
+        viewModel.updateSubrace("high_elf")
+        viewModel.updateBackground("sage")
+        viewModel.nextStep()
+        viewModel.updateClass("wizard")
+        viewModel.nextStep()
+        viewModel.updateAbilityMethod(AbilityMethod.MANUAL)
+        viewModel.updateBaseAbilities(AbilityScores(8, 15, 13, 14, 12, 10))
+        viewModel.nextStep()
+        viewModel.toggleClassSkill("arcana")
+        viewModel.toggleClassSkill("history")
+        viewModel.updateReplacementSkill("arcana", "investigation")
+        viewModel.updateReplacementSkill("history", "medicine")
+        viewModel.nextStep()
+        viewModel.nextStep()
+        viewModel.nextStep()
+
+        viewModel.createCharacter {}
+        viewModel.requestExit { exited = true }
+
+        assertFalse(viewModel.uiState.isDiscardConfirmationVisible)
+        assertFalse(viewModel.uiState.hasUnsavedChanges)
+        assertTrue(exited)
+    }
+
+    @Test
     fun callbackFailureDoesNotBecomePersistenceError() {
         val callbackFailingViewModel = CharacterCreationViewModel(
             repository = Phb2014RulesRepository(),
