@@ -114,14 +114,36 @@ class CharacterEditorViewModelTest {
             launchAsync = { block -> runBlocking { block() } }
         )
 
-        runCatching { viewModel.delete { throw IllegalStateException("nav") } }
+        viewModel.requestDeleteConfirmation()
+        runCatching { viewModel.confirmDelete { throw IllegalStateException("nav") } }
 
         assertEquals("Character deleted, but navigation failed. Try again.", viewModel.uiState.saveErrorMessage)
         assertEquals(1, repository.deleteCalls)
 
-        viewModel.delete {}
+        viewModel.confirmDelete {}
 
         assertEquals(1, repository.deleteCalls)
+    }
+
+    @Test
+    fun deleteRequiresExplicitConfirmation() {
+        val repository = FakeCharacterRepository()
+        val viewModel = CharacterEditorViewModel(
+            repository = repository,
+            editorRules = CharacterEditorRules(Phb2014RulesRepository()),
+            characterId = 42L,
+            launchAsync = { block -> runBlocking { block() } }
+        )
+
+        viewModel.requestDeleteConfirmation()
+
+        assertEquals(true, viewModel.uiState.isDeleteConfirmationVisible)
+        assertEquals(0, repository.deleteCalls)
+
+        viewModel.dismissDeleteConfirmation()
+
+        assertEquals(false, viewModel.uiState.isDeleteConfirmationVisible)
+        assertEquals(0, repository.deleteCalls)
     }
 
     @Test
@@ -134,7 +156,8 @@ class CharacterEditorViewModelTest {
             launchAsync = { block -> runBlocking { block() } }
         )
 
-        viewModel.delete {}
+        viewModel.requestDeleteConfirmation()
+        viewModel.confirmDelete {}
 
         assertEquals(1, repository.deleteCalls)
         assertEquals("Character no longer exists. Reopen it from the list.", viewModel.uiState.saveErrorMessage)

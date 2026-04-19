@@ -40,6 +40,7 @@ data class CharacterEditorUiState(
     val validationIssues: List<ValidationIssue> = emptyList(),
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
+    val isDeleteConfirmationVisible: Boolean = false,
     val validationMessage: String? = null,
     val saveErrorMessage: String? = null,
     val completedAction: EditorCompletedAction? = null
@@ -249,7 +250,27 @@ class CharacterEditorViewModel(
         }
     }
 
-    fun delete(onDeleted: () -> Unit) {
+    fun requestDeleteConfirmation() {
+        if (!uiState.canDelete || uiState.isSaving) return
+        uiState = uiState.copy(
+            isDeleteConfirmationVisible = true,
+            validationMessage = null,
+            saveErrorMessage = null
+        )
+    }
+
+    fun dismissDeleteConfirmation() {
+        if (!uiState.isDeleteConfirmationVisible) return
+        uiState = uiState.copy(isDeleteConfirmationVisible = false)
+    }
+
+    fun confirmDelete(onDeleted: () -> Unit) {
+        if (!uiState.canDelete) return
+        uiState = uiState.copy(isDeleteConfirmationVisible = false)
+        delete(onDeleted)
+    }
+
+    private fun delete(onDeleted: () -> Unit) {
         val id = uiState.characterId ?: return
         if (uiState.completedAction == EditorCompletedAction.DELETED) {
             try {
@@ -273,7 +294,10 @@ class CharacterEditorViewModel(
                     uiState = uiState.copy(saveErrorMessage = "Character deleted, but navigation failed. Try again.")
                 }
             } catch (_: IllegalArgumentException) {
-                uiState = uiState.copy(saveErrorMessage = "Character no longer exists. Reopen it from the list.")
+                uiState = uiState.copy(
+                    isDeleteConfirmationVisible = false,
+                    saveErrorMessage = "Character no longer exists. Reopen it from the list."
+                )
             }
         }
     }
@@ -285,6 +309,7 @@ class CharacterEditorViewModel(
 
 private fun CharacterEditorUiState.clearMessages(): CharacterEditorUiState {
     return copy(
+        isDeleteConfirmationVisible = false,
         validationMessage = null,
         saveErrorMessage = null,
         completedAction = null

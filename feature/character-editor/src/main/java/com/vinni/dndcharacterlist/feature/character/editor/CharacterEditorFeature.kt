@@ -34,7 +34,9 @@ fun NavGraphBuilder.characterEditorGraph(
             onBack = onBack,
             onValueChange = viewModel::update,
             onSave = { viewModel.save(onSaved) },
-            onDelete = { viewModel.delete(onDeleted) }
+            onDeleteRequest = viewModel::requestDeleteConfirmation,
+            onDeleteDismiss = viewModel::dismissDeleteConfirmation,
+            onDeleteConfirm = { viewModel.confirmDelete(onDeleted) }
         )
     }
 
@@ -49,7 +51,9 @@ fun NavGraphBuilder.characterEditorGraph(
             onBack = onBack,
             onValueChange = viewModel::update,
             onSave = { viewModel.save(onSaved) },
-            onDelete = { viewModel.delete(onDeleted) }
+            onDeleteRequest = viewModel::requestDeleteConfirmation,
+            onDeleteDismiss = viewModel::dismissDeleteConfirmation,
+            onDeleteConfirm = { viewModel.confirmDelete(onDeleted) }
         )
     }
 }

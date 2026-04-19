@@ -19,6 +19,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -43,8 +44,28 @@ fun CharacterEditorScreen(
     onBack: () -> Unit,
     onValueChange: (CharacterEditorUiState.() -> CharacterEditorUiState) -> Unit,
     onSave: () -> Unit,
-    onDelete: () -> Unit
+    onDeleteRequest: () -> Unit,
+    onDeleteDismiss: () -> Unit,
+    onDeleteConfirm: () -> Unit
 ) {
+    if (state.isDeleteConfirmationVisible) {
+        AlertDialog(
+            onDismissRequest = onDeleteDismiss,
+            title = { Text("Delete character?") },
+            text = { Text("This will permanently remove the character from your list.") },
+            confirmButton = {
+                TextButton(onClick = onDeleteConfirm) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDeleteDismiss) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -283,7 +304,7 @@ fun CharacterEditorScreen(
                     TextButton(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !state.isSaving,
-                        onClick = onDelete
+                        onClick = onDeleteRequest
                     ) {
                         Text("Delete character")
                     }
