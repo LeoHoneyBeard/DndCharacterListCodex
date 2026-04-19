@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vinni.dndcharacterlist.core.domain.model.CharacterRecord
 import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
@@ -16,18 +18,36 @@ data class CharacterListItem(
 )
 
 data class CharacterListUiState(
-    val characters: List<CharacterListItem> = emptyList()
+    val isLoading: Boolean = true,
+    val characters: List<CharacterListItem> = emptyList(),
+    val errorMessage: String? = null
 )
 
 class CharacterListViewModel(
-    repository: CharacterRepository
+    repository: CharacterRepository,
+    scope: CoroutineScope? = null
 ) : ViewModel() {
+    private val stateScope = scope ?: viewModelScope
+
     val uiState: StateFlow<CharacterListUiState> = repository.observeCharacters()
-        .map { characters -> CharacterListUiState(characters = characters.map(CharacterRecord::toListItem)) }
+        .map { characters ->
+            CharacterListUiState(
+                isLoading = false,
+                characters = characters.map(CharacterRecord::toListItem)
+            )
+        }
+        .catch {
+            emit(
+                CharacterListUiState(
+                    isLoading = false,
+                    errorMessage = "Couldn't load characters. Try again."
+                )
+            )
+        }
         .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = CharacterListUiState()
+            scope = stateScope,
+            started = SharingStarted.Eagerly,
+            initialValue = CharacterListUiState(isLoading = true)
         )
 }
 
