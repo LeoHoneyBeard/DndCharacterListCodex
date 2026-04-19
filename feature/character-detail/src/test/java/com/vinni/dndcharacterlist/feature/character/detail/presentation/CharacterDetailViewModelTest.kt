@@ -87,6 +87,37 @@ class CharacterDetailViewModelTest {
         assertNull(viewModel.uiState.character)
     }
 
+    @Test
+    fun duplicateCreatesNewDraftWithoutChangingSourceCharacter() = runTest {
+        val sourceCharacter = character(
+            id = 7L,
+            level = 4,
+            race = "Elf",
+            characterClass = "Wizard",
+            subclass = "School of Evocation",
+            hitPoints = 27,
+            hitPointsMax = 32,
+            notes = "Knows too much"
+        )
+        val repository = FakeCharacterRepository(sourceCharacter)
+        val viewModel = CharacterDetailViewModel(repository, characterId = 7L)
+        var duplicatedId: Long? = null
+
+        advanceUntilIdle()
+        viewModel.duplicate { newId -> duplicatedId = newId }
+        advanceUntilIdle()
+
+        assertEquals(100L, duplicatedId)
+        assertEquals(7L, repository.sourceCharacter?.id)
+        assertEquals(100L, repository.createdCharacter?.id)
+        assertEquals(sourceCharacter.name, repository.createdCharacter?.name)
+        assertEquals(sourceCharacter.classId, repository.createdCharacter?.classId)
+        assertEquals(sourceCharacter.subclassId, repository.createdCharacter?.subclassId)
+        assertEquals(sourceCharacter.raceId, repository.createdCharacter?.raceId)
+        assertEquals(sourceCharacter.backgroundId, repository.createdCharacter?.backgroundId)
+        assertEquals(sourceCharacter.notes, repository.createdCharacter?.notes)
+    }
+
     private fun character(
         id: Long,
         level: Int,
@@ -129,6 +160,8 @@ class CharacterDetailViewModelTest {
 
     private class FakeCharacterRepository(vararg initialCharacters: CharacterRecord) : CharacterRepository {
         private val characters = MutableStateFlow(initialCharacters.toList())
+        var sourceCharacter: CharacterRecord? = initialCharacters.firstOrNull()
+        var createdCharacter: CharacterRecord? = null
 
         override fun observeCharacters(): Flow<List<CharacterRecord>> = characters
 
@@ -142,7 +175,12 @@ class CharacterDetailViewModelTest {
 
         override suspend fun saveCharacter(character: CharacterUpsert) = Unit
 
-        override suspend fun createCharacter(character: CharacterRecord): Long = error("unused")
+        override suspend fun createCharacter(character: CharacterRecord): Long {
+            val nextId = 100L
+            createdCharacter = character.copy(id = nextId)
+            characters.value = characters.value + requireNotNull(createdCharacter)
+            return nextId
+        }
 
         override suspend fun deleteCharacter(id: Long) = Unit
     }

@@ -7,12 +7,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vinni.dndcharacterlist.core.domain.model.CharacterRecord
 import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 
 data class CharacterDetailUiState(
     val isLoading: Boolean = true,
-    val character: CharacterDetailModel? = null
+    val character: CharacterDetailModel? = null,
+    val isDuplicating: Boolean = false,
+    val actionErrorMessage: String? = null
 )
 
 data class CharacterDetailModel(
@@ -36,8 +39,8 @@ data class StatValue(
 )
 
 class CharacterDetailViewModel(
-    repository: CharacterRepository,
-    characterId: Long
+    private val repository: CharacterRepository,
+    private val characterId: Long
 ) : ViewModel() {
     var uiState by mutableStateOf(CharacterDetailUiState())
         private set
@@ -47,11 +50,44 @@ class CharacterDetailViewModel(
             repository.observeCharacter(characterId)
                 .onStart { uiState = uiState.copy(isLoading = true) }
                 .collect { character ->
-                    uiState = CharacterDetailUiState(
+                    uiState = uiState.copy(
                         isLoading = false,
                         character = character?.toDetailModel()
                     )
                 }
+        }
+    }
+
+    fun duplicate(onDuplicated: (Long) -> Unit) {
+        if (uiState.isDuplicating) return
+
+        viewModelScope.launch {
+            uiState = uiState.copy(isDuplicating = true, actionErrorMessage = null)
+            try {
+                val sourceCharacter = repository.getCharacter(characterId)
+                if (sourceCharacter == null) {
+                    uiState = uiState.copy(
+                        isDuplicating = false,
+                        actionErrorMessage = "Character no longer exists. Reopen it from the list."
+                    )
+                    return@launch
+                }
+
+                val duplicatedId = repository.createCharacter(
+                    sourceCharacter.duplicateAsDraft(timestamp = System.currentTimeMillis())
+                )
+                try {
+                    onDuplicated(duplicatedId)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    uiState = uiState.copy(
+                        actionErrorMessage = "Character duplicated, but navigation failed. Try again."
+                    )
+                }
+            } finally {
+                uiState = uiState.copy(isDuplicating = false)
+            }
         }
     }
 }
@@ -82,6 +118,13 @@ private fun CharacterRecord.toDetailModel(): CharacterDetailModel {
         ),
         notes = notes,
         canLevelUp = level < 20
+    )
+}
+
+private fun CharacterRecord.duplicateAsDraft(timestamp: Long): CharacterRecord {
+    return copy(
+        id = 0L,
+        updatedAt = timestamp
     )
 }
 

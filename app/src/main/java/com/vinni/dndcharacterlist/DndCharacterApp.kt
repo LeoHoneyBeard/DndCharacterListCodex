@@ -43,6 +43,9 @@ fun DndCharacterApp() {
                 },
                 onLevelUpCharacter = { characterId ->
                     navController.navigate(CharacterLevelUpDestination.route(characterId))
+                },
+                onDuplicateCharacter = { duplicatedId ->
+                    navController.navigate(CharacterEditorDestination.route(duplicatedId))
                 }
             )
             characterEditorGraph(

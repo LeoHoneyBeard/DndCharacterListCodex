@@ -36,7 +36,8 @@ fun CharacterDetailScreen(
     state: CharacterDetailUiState,
     onBack: () -> Unit,
     onEdit: () -> Unit,
-    onLevelUp: () -> Unit
+    onLevelUp: () -> Unit,
+    onDuplicate: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -115,10 +116,23 @@ fun CharacterDetailScreen(
                             }
                             Button(
                                 modifier = Modifier.fillMaxWidth(),
+                                enabled = !state.isDuplicating,
+                                onClick = onDuplicate
+                            ) {
+                                Text(if (state.isDuplicating) "Duplicating..." else "Duplicate as draft")
+                            }
+                            Button(
+                                modifier = Modifier.fillMaxWidth(),
                                 enabled = character.canLevelUp,
                                 onClick = onLevelUp
                             ) {
                                 Text(if (character.canLevelUp) "Level up" else "Max level reached")
+                            }
+                            state.actionErrorMessage?.let { message ->
+                                Text(
+                                    text = message,
+                                    color = MaterialTheme.colorScheme.error
+                                )
                             }
                         }
                     }
