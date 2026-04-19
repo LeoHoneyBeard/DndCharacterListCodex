@@ -38,7 +38,10 @@ fun CharacterListScreen(
     onAddCharacter: () -> Unit,
     onCharacterClick: (Long) -> Unit,
     onSearchQueryChange: (String) -> Unit,
-    onSortModeSelected: (CharacterListSortMode) -> Unit
+    onSortModeSelected: (CharacterListSortMode) -> Unit,
+    onClassFilterSelected: (String?) -> Unit,
+    onRaceFilterSelected: (String?) -> Unit,
+    onLevelFilterSelected: (CharacterListLevelFilter) -> Unit
 ) {
     val uiState by state.collectAsState()
 
@@ -89,8 +92,16 @@ fun CharacterListScreen(
                         CharacterListControls(
                             searchQuery = uiState.searchQuery,
                             selectedSortMode = uiState.sortMode,
+                            selectedClassFilter = uiState.classFilter,
+                            selectedRaceFilter = uiState.raceFilter,
+                            selectedLevelFilter = uiState.levelFilter,
+                            availableClasses = uiState.availableClasses,
+                            availableRaces = uiState.availableRaces,
                             onSearchQueryChange = onSearchQueryChange,
-                            onSortModeSelected = onSortModeSelected
+                            onSortModeSelected = onSortModeSelected,
+                            onClassFilterSelected = onClassFilterSelected,
+                            onRaceFilterSelected = onRaceFilterSelected,
+                            onLevelFilterSelected = onLevelFilterSelected
                         )
                     }
 
@@ -104,8 +115,11 @@ fun CharacterListScreen(
                             ) {
                                 Text(
                                     when {
+                                        uiState.hasSavedCharacters &&
+                                            (uiState.searchQuery.isNotBlank() || uiState.hasActiveFilters) ->
+                                            "No characters match the current search and filters."
                                         uiState.hasSavedCharacters ->
-                                            "No characters match \"${uiState.searchQuery.trim()}\"."
+                                            "No characters available for the selected view."
                                         else ->
                                             "No characters yet. Create your first hero."
                                     }
@@ -142,8 +156,16 @@ fun CharacterListScreen(
 private fun CharacterListControls(
     searchQuery: String,
     selectedSortMode: CharacterListSortMode,
+    selectedClassFilter: String?,
+    selectedRaceFilter: String?,
+    selectedLevelFilter: CharacterListLevelFilter,
+    availableClasses: List<String>,
+    availableRaces: List<String>,
     onSearchQueryChange: (String) -> Unit,
-    onSortModeSelected: (CharacterListSortMode) -> Unit
+    onSortModeSelected: (CharacterListSortMode) -> Unit,
+    onClassFilterSelected: (String?) -> Unit,
+    onRaceFilterSelected: (String?) -> Unit,
+    onLevelFilterSelected: (CharacterListLevelFilter) -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -158,29 +180,76 @@ private fun CharacterListControls(
                 singleLine = true
             )
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Sort by",
-                    style = MaterialTheme.typography.labelLarge
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    CharacterListSortMode.entries.forEach { mode ->
-                        AssistChip(
-                            onClick = { onSortModeSelected(mode) },
-                            label = { Text(mode.label) },
-                            colors = if (mode == selectedSortMode) {
-                                AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    labelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            } else {
-                                AssistChipDefaults.assistChipColors()
-                            }
-                        )
+                FilterChipGroup(
+                    title = "Sort by",
+                    options = CharacterListSortMode.entries.map(CharacterListSortMode::label),
+                    selectedOption = selectedSortMode.label,
+                    onOptionSelected = { selectedLabel ->
+                        CharacterListSortMode.entries
+                            .firstOrNull { mode -> mode.label == selectedLabel }
+                            ?.let(onSortModeSelected)
                     }
-                }
+                )
+                FilterChipGroup(
+                    title = "Class",
+                    options = listOf("Any class") + availableClasses,
+                    selectedOption = selectedClassFilter ?: "Any class",
+                    onOptionSelected = { selectedOption ->
+                        onClassFilterSelected(selectedOption.takeUnless { it == "Any class" })
+                    }
+                )
+                FilterChipGroup(
+                    title = "Race",
+                    options = listOf("Any race") + availableRaces,
+                    selectedOption = selectedRaceFilter ?: "Any race",
+                    onOptionSelected = { selectedOption ->
+                        onRaceFilterSelected(selectedOption.takeUnless { it == "Any race" })
+                    }
+                )
+                FilterChipGroup(
+                    title = "Level",
+                    options = CharacterListLevelFilter.entries.map(CharacterListLevelFilter::label),
+                    selectedOption = selectedLevelFilter.label,
+                    onOptionSelected = { selectedLabel ->
+                        CharacterListLevelFilter.entries
+                            .firstOrNull { filter -> filter.label == selectedLabel }
+                            ?.let(onLevelFilterSelected)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilterChipGroup(
+    title: String,
+    options: List<String>,
+    selectedOption: String,
+    onOptionSelected: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            options.forEach { option ->
+                AssistChip(
+                    onClick = { onOptionSelected(option) },
+                    label = { Text(option) },
+                    colors = if (option == selectedOption) {
+                        AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    } else {
+                        AssistChipDefaults.assistChipColors()
+                    }
+                )
             }
         }
     }

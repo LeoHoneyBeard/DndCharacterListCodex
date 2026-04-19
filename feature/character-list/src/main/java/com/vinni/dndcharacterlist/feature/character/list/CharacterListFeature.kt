@@ -24,7 +24,10 @@ fun NavGraphBuilder.characterListGraph(
             onAddCharacter = onCreateCharacter,
             onCharacterClick = onOpenCharacter,
             onSearchQueryChange = viewModel::updateSearchQuery,
-            onSortModeSelected = viewModel::setSortMode
+            onSortModeSelected = viewModel::setSortMode,
+            onClassFilterSelected = viewModel::setClassFilter,
+            onRaceFilterSelected = viewModel::setRaceFilter,
+            onLevelFilterSelected = viewModel::setLevelFilter
         )
     }
 }

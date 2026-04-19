@@ -74,6 +74,8 @@ class CharacterListViewModelTest {
         assertEquals(1, viewModel.uiState.value.characters.size)
         assertEquals(null, viewModel.uiState.value.errorMessage)
         assertEquals(CharacterListSortMode.UPDATED_AT, viewModel.uiState.value.sortMode)
+        assertEquals(listOf("Wizard"), viewModel.uiState.value.availableClasses)
+        assertEquals(listOf("Elf"), viewModel.uiState.value.availableRaces)
     }
 
     @Test
@@ -130,6 +132,64 @@ class CharacterListViewModelTest {
 
         viewModel.setSortMode(CharacterListSortMode.LEVEL)
         assertEquals(listOf("Aylin", "Cora", "Borin"), viewModel.uiState.value.characters.map(CharacterListItem::name))
+    }
+
+    @Test
+    fun `class race and level filters combine with search and sorting`() {
+        val repository = FakeCharacterRepository(
+            listOf(
+                character(id = 1L, name = "Aylin", characterClass = "Wizard", race = "Elf", level = 4, updatedAt = 1L),
+                character(id = 2L, name = "Ayla", characterClass = "Wizard", race = "Elf", level = 7, updatedAt = 4L),
+                character(id = 3L, name = "Borin", characterClass = "Wizard", race = "Dwarf", level = 7, updatedAt = 3L),
+                character(id = 4L, name = "Ayla Storm", characterClass = "Ranger", race = "Elf", level = 7, updatedAt = 2L)
+            )
+        )
+        val viewModel = CharacterListViewModel(
+            repository = repository,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        )
+
+        viewModel.updateSearchQuery("ay")
+        viewModel.setClassFilter("Wizard")
+        viewModel.setRaceFilter("Elf")
+        viewModel.setLevelFilter(CharacterListLevelFilter.LEVELS_5_TO_10)
+        viewModel.setSortMode(CharacterListSortMode.NAME)
+
+        assertEquals(listOf("Ayla"), viewModel.uiState.value.characters.map(CharacterListItem::name))
+        assertEquals("Wizard", viewModel.uiState.value.classFilter)
+        assertEquals("Elf", viewModel.uiState.value.raceFilter)
+        assertEquals(CharacterListLevelFilter.LEVELS_5_TO_10, viewModel.uiState.value.levelFilter)
+        assertEquals(true, viewModel.uiState.value.hasActiveFilters)
+    }
+
+    @Test
+    fun `level filter buckets include expected boundaries`() {
+        val repository = FakeCharacterRepository(
+            listOf(
+                character(id = 1L, name = "Four", level = 4, updatedAt = 4L),
+                character(id = 2L, name = "Five", level = 5, updatedAt = 3L),
+                character(id = 3L, name = "Ten", level = 10, updatedAt = 2L),
+                character(id = 4L, name = "Eleven", level = 11, updatedAt = 1L),
+                character(id = 5L, name = "Sixteen", level = 16, updatedAt = 5L),
+                character(id = 6L, name = "Seventeen", level = 17, updatedAt = 6L)
+            )
+        )
+        val viewModel = CharacterListViewModel(
+            repository = repository,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        )
+
+        viewModel.setLevelFilter(CharacterListLevelFilter.LEVELS_1_TO_4)
+        assertEquals(listOf("Four"), viewModel.uiState.value.characters.map(CharacterListItem::name))
+
+        viewModel.setLevelFilter(CharacterListLevelFilter.LEVELS_5_TO_10)
+        assertEquals(listOf("Five", "Ten"), viewModel.uiState.value.characters.map(CharacterListItem::name))
+
+        viewModel.setLevelFilter(CharacterListLevelFilter.LEVELS_11_TO_16)
+        assertEquals(listOf("Sixteen", "Eleven"), viewModel.uiState.value.characters.map(CharacterListItem::name))
+
+        viewModel.setLevelFilter(CharacterListLevelFilter.LEVELS_17_TO_20)
+        assertEquals(listOf("Seventeen"), viewModel.uiState.value.characters.map(CharacterListItem::name))
     }
 
     private fun character(
