@@ -23,7 +23,8 @@ object CharacterDetailDestination : NavigationDestination {
 fun NavGraphBuilder.characterDetailGraph(
     onBack: () -> Unit,
     onEditCharacter: (Long) -> Unit,
-    onLevelUpCharacter: (Long) -> Unit
+    onLevelUpCharacter: (Long) -> Unit,
+    onDuplicateCharacter: (Long) -> Unit
 ) {
     composable(
         route = "${CharacterDetailDestination.route}/{$CHARACTER_ID_ARG}",
@@ -35,7 +36,8 @@ fun NavGraphBuilder.characterDetailGraph(
             state = viewModel.uiState,
             onBack = onBack,
             onEdit = { onEditCharacter(characterId) },
-            onLevelUp = { onLevelUpCharacter(characterId) }
+            onLevelUp = { onLevelUpCharacter(characterId) },
+            onDuplicate = { viewModel.duplicate(onDuplicateCharacter) }
         )
     }
 }

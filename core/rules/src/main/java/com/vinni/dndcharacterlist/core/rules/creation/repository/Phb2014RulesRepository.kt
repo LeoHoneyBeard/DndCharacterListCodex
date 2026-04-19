@@ -177,10 +177,7 @@ class Phb2014RulesRepository : RulesRepository {
                 skillChoiceCount = 2,
                 skillOptions = setOf("athletics", "insight", "intimidation", "medicine", "persuasion", "religion"),
                 subclassLevel = 3,
-                spellcasting = SpellcastingDefinition(
-                    spellcastingAbility = AbilityType.CHARISMA,
-                    slotsByLevel = emptyMap()
-                )
+                spellcasting = halfCaster(AbilityType.CHARISMA)
             ),
             ClassDefinition(
                 id = "ranger",
@@ -191,10 +188,7 @@ class Phb2014RulesRepository : RulesRepository {
                 skillChoiceCount = 3,
                 skillOptions = setOf("animal_handling", "athletics", "insight", "investigation", "nature", "perception", "stealth", "survival"),
                 subclassLevel = 3,
-                spellcasting = SpellcastingDefinition(
-                    spellcastingAbility = AbilityType.WISDOM,
-                    slotsByLevel = emptyMap()
-                )
+                spellcasting = halfCaster(AbilityType.WISDOM)
             ),
             ClassDefinition(
                 id = "rogue",
@@ -306,7 +300,79 @@ class Phb2014RulesRepository : RulesRepository {
     private fun fullCaster(ability: AbilityType): SpellcastingDefinition {
         return SpellcastingDefinition(
             spellcastingAbility = ability,
-            slotsByLevel = mapOf(1 to SpellSlots(firstLevel = 2))
+            slotsByLevel = mapOf(
+                1 to slots(2),
+                2 to slots(3),
+                3 to slots(4, 2),
+                4 to slots(4, 3),
+                5 to slots(4, 3, 2),
+                6 to slots(4, 3, 3),
+                7 to slots(4, 3, 3, 1),
+                8 to slots(4, 3, 3, 2),
+                9 to slots(4, 3, 3, 3, 1),
+                10 to slots(4, 3, 3, 3, 2),
+                11 to slots(4, 3, 3, 3, 2, 1),
+                12 to slots(4, 3, 3, 3, 2, 1),
+                13 to slots(4, 3, 3, 3, 2, 1, 1),
+                14 to slots(4, 3, 3, 3, 2, 1, 1),
+                15 to slots(4, 3, 3, 3, 2, 1, 1, 1),
+                16 to slots(4, 3, 3, 3, 2, 1, 1, 1),
+                17 to slots(4, 3, 3, 3, 2, 1, 1, 1, 1),
+                18 to slots(4, 3, 3, 3, 3, 1, 1, 1, 1),
+                19 to slots(4, 3, 3, 3, 3, 2, 1, 1, 1),
+                20 to slots(4, 3, 3, 3, 3, 2, 2, 1, 1)
+            )
+        )
+    }
+
+    private fun halfCaster(ability: AbilityType): SpellcastingDefinition {
+        return SpellcastingDefinition(
+            spellcastingAbility = ability,
+            slotsByLevel = mapOf(
+                2 to slots(2),
+                3 to slots(3),
+                4 to slots(3),
+                5 to slots(4, 2),
+                6 to slots(4, 2),
+                7 to slots(4, 3),
+                8 to slots(4, 3),
+                9 to slots(4, 3, 2),
+                10 to slots(4, 3, 2),
+                11 to slots(4, 3, 3),
+                12 to slots(4, 3, 3),
+                13 to slots(4, 3, 3, 1),
+                14 to slots(4, 3, 3, 1),
+                15 to slots(4, 3, 3, 2),
+                16 to slots(4, 3, 3, 2),
+                17 to slots(4, 3, 3, 3, 1),
+                18 to slots(4, 3, 3, 3, 1),
+                19 to slots(4, 3, 3, 3, 2),
+                20 to slots(4, 3, 3, 3, 2)
+            )
+        )
+    }
+
+    private fun slots(
+        firstLevel: Int = 0,
+        secondLevel: Int = 0,
+        thirdLevel: Int = 0,
+        fourthLevel: Int = 0,
+        fifthLevel: Int = 0,
+        sixthLevel: Int = 0,
+        seventhLevel: Int = 0,
+        eighthLevel: Int = 0,
+        ninthLevel: Int = 0
+    ): SpellSlots {
+        return SpellSlots(
+            firstLevel = firstLevel,
+            secondLevel = secondLevel,
+            thirdLevel = thirdLevel,
+            fourthLevel = fourthLevel,
+            fifthLevel = fifthLevel,
+            sixthLevel = sixthLevel,
+            seventhLevel = seventhLevel,
+            eighthLevel = eighthLevel,
+            ninthLevel = ninthLevel
         )
     }
 

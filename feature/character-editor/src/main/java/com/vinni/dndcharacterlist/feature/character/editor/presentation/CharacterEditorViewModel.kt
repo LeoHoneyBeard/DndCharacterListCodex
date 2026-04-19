@@ -5,17 +5,23 @@ import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.vinni.dndcharacterlist.core.domain.model.CharacterUpsert
 import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
+import com.vinni.dndcharacterlist.core.rules.creation.model.ValidationIssue
+import com.vinni.dndcharacterlist.core.rules.editor.CharacterEditorDraft
+import com.vinni.dndcharacterlist.core.rules.editor.CharacterEditorRules
+import com.vinni.dndcharacterlist.feature.character.editor.domain.DeleteCharacterUseCase
+import com.vinni.dndcharacterlist.feature.character.editor.domain.UpdateCharacterUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 data class CharacterEditorUiState(
     val characterId: Long? = null,
+    val ruleset: String = "PHB_2014",
     val name: String = "",
     val characterClass: String = "",
     val subclass: String = "",
     val race: String = "",
+    val subraceId: String = "",
     val alignment: String = "",
     val background: String = "",
     val level: String = "1",
@@ -28,51 +34,55 @@ data class CharacterEditorUiState(
     val wisdom: String = "10",
     val charisma: String = "10",
     val notes: String = "",
+    val classPresets: List<String> = emptyList(),
+    val subclassPresets: List<String> = emptyList(),
+    val racePresets: List<String> = emptyList(),
+    val backgroundPresets: List<String> = emptyList(),
+    val validationIssues: List<ValidationIssue> = emptyList(),
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
+    val hasUnsavedChanges: Boolean = false,
+    val isDeleteConfirmationVisible: Boolean = false,
+    val isDiscardConfirmationVisible: Boolean = false,
     val validationMessage: String? = null,
     val saveErrorMessage: String? = null,
     val completedAction: EditorCompletedAction? = null
 ) {
     val nameError: String?
-        get() = if (name.isBlank()) "Name is required." else null
+        get() = validationIssue("name_required")
 
     val levelError: String?
-        get() = if (level.toIntOrNull()?.let { it in 1..20 } != true) {
-            "Level must be between 1 and 20."
-        } else {
-            null
-        }
+        get() = validationIssue("level_invalid")
 
     val armorClassError: String?
-        get() = if (armorClass.toIntOrNull()?.let { it >= 0 } != true) {
-            "Armor Class must be 0 or higher."
-        } else {
-            null
-        }
+        get() = validationIssue("armor_class_invalid")
 
     val hitPointsError: String?
-        get() = if (hitPoints.toIntOrNull()?.let { it >= 0 } != true) {
-            "Hit Points must be 0 or higher."
-        } else {
-            null
-        }
+        get() = validationIssue("hit_points_invalid")
 
     val abilityScoreError: String?
-        get() {
-            val stats = listOf(strength, dexterity, constitution, intelligence, wisdom, charisma)
-            return if (stats.any { it.toIntOrNull()?.let { score -> score in 1..30 } != true }) {
-                "Ability scores must be between 1 and 30."
-            } else {
-                null
-            }
-        }
+        get() = validationIssue("ability_scores_invalid")
+
+    val classError: String?
+        get() = validationIssue("class_required")
+
+    val subclassError: String?
+        get() = validationIssue("subclass_required")
+            ?: validationIssue("subclass_invalid")
+            ?: validationIssue("subclass_not_available")
+            ?: validationIssue("subclass_unsupported")
+
+    val raceError: String?
+        get() = validationIssue("race_required") ?: validationIssue("subrace_required")
+
+    val backgroundError: String?
+        get() = validationIssue("background_required")
 
     val canDelete: Boolean
         get() = characterId != null
 
     val isSaveEnabled: Boolean
-        get() = !isSaving && validate() == null
+        get() = !isSaving && validationIssues.isEmpty()
 
     val proficiencyBonus: Int
         get() = ((level.toIntOrNull() ?: 1).coerceIn(1, 20) - 1) / 4 + 2
@@ -83,12 +93,31 @@ data class CharacterEditorUiState(
         }
     }
 
-    fun validate(): String? {
-        return nameError
-            ?: levelError
-            ?: armorClassError
-            ?: hitPointsError
-            ?: abilityScoreError
+    fun toDraft(): CharacterEditorDraft {
+        return CharacterEditorDraft(
+            ruleset = ruleset,
+            name = name,
+            characterClass = characterClass,
+            subclass = subclass,
+            race = race,
+            subraceId = subraceId,
+            alignment = alignment,
+            background = background,
+            level = level,
+            armorClass = armorClass,
+            hitPoints = hitPoints,
+            strength = strength,
+            dexterity = dexterity,
+            constitution = constitution,
+            intelligence = intelligence,
+            wisdom = wisdom,
+            charisma = charisma,
+            notes = notes
+        )
+    }
+
+    private fun validationIssue(key: String): String? {
+        return validationIssues.firstOrNull { it.key == key }?.message
     }
 }
 
@@ -99,11 +128,19 @@ enum class EditorCompletedAction {
 
 class CharacterEditorViewModel(
     private val repository: CharacterRepository,
+    private val editorRules: CharacterEditorRules,
+    private val updateCharacter: UpdateCharacterUseCase,
+    private val deleteCharacter: DeleteCharacterUseCase,
     characterId: Long?,
     private val launchAsync: ((block: suspend () -> Unit) -> Unit)? = null
 ) : ViewModel() {
+    private var persistedDraft = CharacterEditorUiState().toDraft()
 
-    var uiState by mutableStateOf(CharacterEditorUiState(isLoading = characterId != null))
+    var uiState by mutableStateOf(
+        CharacterEditorUiState(
+            isLoading = characterId != null
+        ).withRules(editorRules).withDirtyState()
+    )
         private set
 
     init {
@@ -111,14 +148,17 @@ class CharacterEditorViewModel(
             launchBlock {
                 val character = repository.getCharacter(characterId)
                 uiState = if (character == null) {
-                    CharacterEditorUiState(characterId = characterId)
+                    persistedDraft = CharacterEditorUiState(characterId = characterId).toDraft()
+                    CharacterEditorUiState(characterId = characterId).withRules(editorRules).withDirtyState()
                 } else {
-                    CharacterEditorUiState(
+                    val loadedState = CharacterEditorUiState(
                         characterId = character.id,
+                        ruleset = character.ruleset.ifBlank { "PHB_2014" },
                         name = character.name,
                         characterClass = character.characterClass,
                         subclass = character.subclass,
                         race = character.race,
+                        subraceId = character.subraceId,
                         alignment = character.alignment,
                         background = character.background,
                         level = character.level.toString(),
@@ -131,14 +171,53 @@ class CharacterEditorViewModel(
                         wisdom = character.wisdom.toString(),
                         charisma = character.charisma.toString(),
                         notes = character.notes
-                    )
+                    ).withRules(editorRules)
+                    persistedDraft = loadedState.toDraft()
+                    loadedState.withDirtyState()
                 }
             }
         }
     }
 
     fun update(update: CharacterEditorUiState.() -> CharacterEditorUiState) {
-        uiState = uiState.update().clearMessages()
+        uiState = uiState
+            .update()
+            .clearMessages()
+            .withRules(editorRules)
+            .withDirtyState()
+    }
+
+    fun requestExit(onExit: () -> Unit) {
+        when {
+            uiState.isDeleteConfirmationVisible -> {
+                uiState = uiState.copy(isDeleteConfirmationVisible = false)
+            }
+
+            uiState.isDiscardConfirmationVisible -> {
+                uiState = uiState.copy(isDiscardConfirmationVisible = false)
+            }
+
+            uiState.isSaving -> Unit
+            uiState.hasUnsavedChanges -> {
+                uiState = uiState.copy(
+                    isDiscardConfirmationVisible = true,
+                    validationMessage = null,
+                    saveErrorMessage = null
+                )
+            }
+
+            else -> onExit()
+        }
+    }
+
+    fun dismissExitConfirmation() {
+        if (!uiState.isDiscardConfirmationVisible) return
+        uiState = uiState.copy(isDiscardConfirmationVisible = false)
+    }
+
+    fun confirmExit(onExit: () -> Unit) {
+        uiState = uiState.copy(isDiscardConfirmationVisible = false)
+        onExit()
     }
 
     fun save(onSaved: () -> Unit) {
@@ -154,7 +233,7 @@ class CharacterEditorViewModel(
         }
         if (uiState.isSaving) return
 
-        val validationMessage = uiState.validate()
+        val validationMessage = uiState.validationIssues.firstOrNull()?.message
         if (validationMessage != null) {
             uiState = uiState.copy(validationMessage = validationMessage, saveErrorMessage = null)
             return
@@ -163,28 +242,21 @@ class CharacterEditorViewModel(
         uiState = uiState.copy(isSaving = true, saveErrorMessage = null)
         launchBlock {
             try {
-                repository.saveCharacter(
-                    CharacterUpsert(
-                        id = uiState.characterId,
-                        name = uiState.name.trim(),
-                        characterClass = uiState.characterClass.trim(),
-                        subclass = uiState.subclass.trim(),
-                        race = uiState.race.trim(),
-                        alignment = uiState.alignment.trim(),
-                        background = uiState.background.trim(),
-                        level = uiState.level.toIntOrNull()?.coerceAtLeast(1) ?: 1,
-                        armorClass = uiState.armorClass.toIntOrNull()?.coerceAtLeast(0) ?: 0,
-                        hitPoints = uiState.hitPoints.toIntOrNull()?.coerceAtLeast(0) ?: 0,
-                        strength = uiState.strength.toIntOrNull()?.coerceIn(1, 30) ?: 10,
-                        dexterity = uiState.dexterity.toIntOrNull()?.coerceIn(1, 30) ?: 10,
-                        constitution = uiState.constitution.toIntOrNull()?.coerceIn(1, 30) ?: 10,
-                        intelligence = uiState.intelligence.toIntOrNull()?.coerceIn(1, 30) ?: 10,
-                        wisdom = uiState.wisdom.toIntOrNull()?.coerceIn(1, 30) ?: 10,
-                        charisma = uiState.charisma.toIntOrNull()?.coerceIn(1, 30) ?: 10,
-                        notes = uiState.notes.trim()
+                val draft = uiState.toDraft()
+                val resolved = editorRules.resolveSelections(draft)
+                if (resolved == null) {
+                    uiState = uiState.copy(
+                        isSaving = false,
+                        validationMessage = uiState.validationIssues.firstOrNull()?.message
                     )
-                )
-                uiState = uiState.copy(completedAction = EditorCompletedAction.SAVED)
+                    return@launchBlock
+                }
+                updateCharacter(uiState.characterId, draft)
+                persistedDraft = draft
+                uiState = uiState.copy(
+                    completedAction = EditorCompletedAction.SAVED,
+                    isDiscardConfirmationVisible = false
+                ).withDirtyState()
                 try {
                     onSaved()
                 } catch (error: CancellationException) {
@@ -200,7 +272,28 @@ class CharacterEditorViewModel(
         }
     }
 
-    fun delete(onDeleted: () -> Unit) {
+    fun requestDeleteConfirmation() {
+        if (!uiState.canDelete || uiState.isSaving) return
+        uiState = uiState.copy(
+            isDeleteConfirmationVisible = true,
+            isDiscardConfirmationVisible = false,
+            validationMessage = null,
+            saveErrorMessage = null
+        )
+    }
+
+    fun dismissDeleteConfirmation() {
+        if (!uiState.isDeleteConfirmationVisible) return
+        uiState = uiState.copy(isDeleteConfirmationVisible = false)
+    }
+
+    fun confirmDelete(onDeleted: () -> Unit) {
+        if (!uiState.canDelete) return
+        uiState = uiState.copy(isDeleteConfirmationVisible = false)
+        delete(onDeleted)
+    }
+
+    private fun delete(onDeleted: () -> Unit) {
         val id = uiState.characterId ?: return
         if (uiState.completedAction == EditorCompletedAction.DELETED) {
             try {
@@ -213,14 +306,21 @@ class CharacterEditorViewModel(
             return
         }
         launchBlock {
-            repository.deleteCharacter(id)
-            uiState = uiState.copy(completedAction = EditorCompletedAction.DELETED)
             try {
-                onDeleted()
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                uiState = uiState.copy(saveErrorMessage = "Character deleted, but navigation failed. Try again.")
+                deleteCharacter(id)
+                uiState = uiState.copy(completedAction = EditorCompletedAction.DELETED)
+                try {
+                    onDeleted()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    uiState = uiState.copy(saveErrorMessage = "Character deleted, but navigation failed. Try again.")
+                }
+            } catch (_: IllegalArgumentException) {
+                uiState = uiState.copy(
+                    isDeleteConfirmationVisible = false,
+                    saveErrorMessage = "Character no longer exists. Reopen it from the list."
+                )
             }
         }
     }
@@ -228,13 +328,38 @@ class CharacterEditorViewModel(
     private fun launchBlock(block: suspend () -> Unit) {
         launchAsync?.invoke(block) ?: viewModelScope.launch { block() }
     }
+
+    private fun CharacterEditorUiState.withDirtyState(): CharacterEditorUiState {
+        return copy(
+            hasUnsavedChanges = completedAction == null && toDraft() != persistedDraft
+        )
+    }
 }
 
 private fun CharacterEditorUiState.clearMessages(): CharacterEditorUiState {
     return copy(
+        isDeleteConfirmationVisible = false,
+        isDiscardConfirmationVisible = false,
         validationMessage = null,
         saveErrorMessage = null,
         completedAction = null
+    )
+}
+
+private fun CharacterEditorUiState.withRules(
+    editorRules: CharacterEditorRules
+): CharacterEditorUiState {
+    val rulesContent = editorRules.rulesContentFor(ruleset)
+    val selectedClass = rulesContent.classes.firstOrNull { candidate ->
+        candidate.name.equals(characterClass.trim(), ignoreCase = true) ||
+            candidate.id.equals(characterClass.trim(), ignoreCase = true)
+    }
+    return copy(
+        classPresets = rulesContent.classes.map { it.name },
+        subclassPresets = selectedClass?.subclasses?.map { it.name }.orEmpty(),
+        racePresets = rulesContent.races.map { it.name },
+        backgroundPresets = rulesContent.backgrounds.map { it.name },
+        validationIssues = editorRules.validate(toDraft())
     )
 }
 

@@ -5,8 +5,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
-import com.vinni.dndcharacterlist.core.rules.creation.mapper.CharacterCreationMapper
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityMethod
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityScores
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityType
@@ -18,6 +16,7 @@ import com.vinni.dndcharacterlist.core.rules.creation.repository.RulesRepository
 import com.vinni.dndcharacterlist.core.rules.creation.rules.AbilityGenerationRules
 import com.vinni.dndcharacterlist.core.rules.creation.rules.CharacterCreationRulesEngine
 import com.vinni.dndcharacterlist.core.rules.creation.rules.RulesContent
+import com.vinni.dndcharacterlist.feature.character.creation.domain.CreateCharacterUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -27,26 +26,28 @@ data class CharacterCreationUiState(
     val derived: DerivedCharacterStats = DerivedCharacterStats(),
     val rulesContent: RulesContent,
     val isSubmitting: Boolean = false,
+    val hasUnsavedChanges: Boolean = false,
+    val isDiscardConfirmationVisible: Boolean = false,
     val stepError: String? = null,
     val createdCharacterId: Long? = null
 )
 
 class CharacterCreationViewModel(
-    repository: RulesRepository,
-    private val characterRepository: CharacterRepository,
-    private val mapper: CharacterCreationMapper = CharacterCreationMapper(),
+    private val repository: RulesRepository,
+    private val createCharacter: CreateCharacterUseCase,
     private val rulesEngine: CharacterCreationRulesEngine = CharacterCreationRulesEngine(repository),
     private val launchCreate: ((block: suspend () -> Unit) -> Unit)? = null
 ) : ViewModel() {
-
-    private val rulesContent = repository.getRuleset(Ruleset.PHB_2014)
+    private var persistedDraft = CharacterCreationDraft()
 
     var uiState by mutableStateOf(
         CharacterCreationUiState(
-            rulesContent = rulesContent
-        ).recalculate(rulesEngine)
+            rulesContent = repository.getRuleset(persistedDraft.ruleset)
+        ).recalculate().withDirtyState()
     )
         private set
+
+    fun updateRuleset(ruleset: Ruleset) = updateDraft { copy(ruleset = ruleset) }
 
     fun updateName(value: String) = updateDraft { copy(name = value) }
 
@@ -144,6 +145,34 @@ class CharacterCreationViewModel(
         uiState = uiState.copy(currentStep = previous, stepError = null)
     }
 
+    fun requestExit(onExit: () -> Unit) {
+        when {
+            uiState.isDiscardConfirmationVisible -> {
+                uiState = uiState.copy(isDiscardConfirmationVisible = false)
+            }
+
+            uiState.isSubmitting -> Unit
+            uiState.hasUnsavedChanges -> {
+                uiState = uiState.copy(
+                    isDiscardConfirmationVisible = true,
+                    stepError = null
+                )
+            }
+
+            else -> onExit()
+        }
+    }
+
+    fun dismissExitConfirmation() {
+        if (!uiState.isDiscardConfirmationVisible) return
+        uiState = uiState.copy(isDiscardConfirmationVisible = false)
+    }
+
+    fun confirmExit(onExit: () -> Unit) {
+        uiState = uiState.copy(isDiscardConfirmationVisible = false)
+        onExit()
+    }
+
     fun createCharacter(onCreated: (Long) -> Unit) {
         if (uiState.currentStep != CharacterCreationStep.SUMMARY) return
         if (uiState.isSubmitting) return
@@ -166,12 +195,10 @@ class CharacterCreationViewModel(
         }
         launcher {
             val characterId = try {
-                characterRepository.createCharacter(
-                    mapper.toCharacterRecord(
-                        draft = uiState.draft,
-                        derived = uiState.derived,
-                        rulesContent = uiState.rulesContent
-                    )
+                createCharacter(
+                    draft = uiState.draft,
+                    derived = uiState.derived,
+                    rulesContent = uiState.rulesContent
                 )
             } catch (error: CancellationException) {
                 uiState = uiState.copy(isSubmitting = false)
@@ -184,11 +211,13 @@ class CharacterCreationViewModel(
                 return@launcher
             }
 
+            persistedDraft = uiState.draft
             uiState = uiState.copy(
                 isSubmitting = false,
+                isDiscardConfirmationVisible = false,
                 createdCharacterId = characterId,
                 stepError = null
-            )
+            ).withDirtyState()
             try {
                 onCreated(characterId)
             } catch (error: CancellationException) {
@@ -202,8 +231,9 @@ class CharacterCreationViewModel(
     private fun updateDraft(update: CharacterCreationDraft.() -> CharacterCreationDraft) {
         uiState = uiState.copy(
             draft = uiState.draft.update(),
+            isDiscardConfirmationVisible = false,
             stepError = null
-        ).recalculate(rulesEngine)
+        ).recalculate().withDirtyState()
     }
 
     private fun validateCurrentStep(): String? {
@@ -251,12 +281,20 @@ class CharacterCreationViewModel(
         val classDefinition = uiState.rulesContent.classes.firstOrNull { it.id == classId } ?: return false
         return classDefinition.subclassLevel == 1
     }
-}
 
-private fun CharacterCreationUiState.recalculate(
-    rulesEngine: CharacterCreationRulesEngine
-): CharacterCreationUiState {
-    return copy(derived = rulesEngine.derive(draft))
+    private fun CharacterCreationUiState.withDirtyState(): CharacterCreationUiState {
+        return copy(
+            hasUnsavedChanges = createdCharacterId == null && draft != persistedDraft
+        )
+    }
+
+    private fun CharacterCreationUiState.recalculate(): CharacterCreationUiState {
+        val currentRulesContent = repository.getRuleset(draft.ruleset)
+        return copy(
+            rulesContent = currentRulesContent,
+            derived = rulesEngine.derive(draft)
+        )
+    }
 }
 
 private fun CharacterCreationStep.next(): CharacterCreationStep {

@@ -3,10 +3,13 @@ package com.vinni.dndcharacterlist.feature.character.creation
 import com.vinni.dndcharacterlist.core.domain.model.CharacterRecord
 import com.vinni.dndcharacterlist.core.domain.model.CharacterUpsert
 import com.vinni.dndcharacterlist.core.domain.repository.CharacterRepository
+import com.vinni.dndcharacterlist.core.rules.creation.mapper.CharacterCreationMapper
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityMethod
 import com.vinni.dndcharacterlist.core.rules.creation.model.AbilityScores
 import com.vinni.dndcharacterlist.core.rules.creation.model.CharacterCreationStep
+import com.vinni.dndcharacterlist.core.rules.creation.model.Ruleset
 import com.vinni.dndcharacterlist.core.rules.creation.repository.Phb2014RulesRepository
+import com.vinni.dndcharacterlist.feature.character.creation.domain.CreateCharacterUseCase
 import com.vinni.dndcharacterlist.feature.character.creation.presentation.CharacterCreationViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +27,7 @@ class CharacterCreationViewModelTest {
     private val fakeRepository = FakeCharacterRepository()
     private val viewModel = CharacterCreationViewModel(
         repository = Phb2014RulesRepository(),
-        characterRepository = fakeRepository,
+        createCharacter = CreateCharacterUseCase(fakeRepository, CharacterCreationMapper()),
         launchCreate = { block -> runBlocking { block() } }
     )
 
@@ -63,6 +66,7 @@ class CharacterCreationViewModelTest {
         assertFalse(viewModel.uiState.isSubmitting)
 
         var createdId: Long? = null
+        viewModel.updateRuleset(Ruleset.PHB_2014)
         viewModel.updateName("Aylin")
         viewModel.updateRace("elf")
         viewModel.updateSubrace("high_elf")
@@ -88,13 +92,14 @@ class CharacterCreationViewModelTest {
         assertFalse(viewModel.uiState.isSubmitting)
         assertEquals(1L, createdId)
         assertEquals(1, fakeRepository.characterCount())
+        assertEquals("PHB_2014", fakeRepository.lastCreatedCharacter?.ruleset)
     }
 
     @Test
     fun submitFailureResetsSubmittingAndExposesError() {
         val failingViewModel = CharacterCreationViewModel(
             repository = Phb2014RulesRepository(),
-            characterRepository = FailingCharacterRepository(),
+            createCharacter = CreateCharacterUseCase(FailingCharacterRepository(), CharacterCreationMapper()),
             launchCreate = { block -> runBlocking { block() } }
         )
 
@@ -123,10 +128,60 @@ class CharacterCreationViewModelTest {
     }
 
     @Test
+    fun dirtyCreationRequiresExplicitDiscardConfirmation() {
+        var exited = false
+
+        viewModel.updateName("Aylin")
+        viewModel.requestExit { exited = true }
+
+        assertTrue(viewModel.uiState.hasUnsavedChanges)
+        assertTrue(viewModel.uiState.isDiscardConfirmationVisible)
+        assertFalse(exited)
+
+        viewModel.dismissExitConfirmation()
+        assertFalse(viewModel.uiState.isDiscardConfirmationVisible)
+
+        viewModel.requestExit { exited = true }
+        viewModel.confirmExit { exited = true }
+
+        assertTrue(exited)
+    }
+
+    @Test
+    fun successfulCreateAllowsExitWithoutPrompt() {
+        var exited = false
+
+        viewModel.updateName("Aylin")
+        viewModel.updateRace("elf")
+        viewModel.updateSubrace("high_elf")
+        viewModel.updateBackground("sage")
+        viewModel.nextStep()
+        viewModel.updateClass("wizard")
+        viewModel.nextStep()
+        viewModel.updateAbilityMethod(AbilityMethod.MANUAL)
+        viewModel.updateBaseAbilities(AbilityScores(8, 15, 13, 14, 12, 10))
+        viewModel.nextStep()
+        viewModel.toggleClassSkill("arcana")
+        viewModel.toggleClassSkill("history")
+        viewModel.updateReplacementSkill("arcana", "investigation")
+        viewModel.updateReplacementSkill("history", "medicine")
+        viewModel.nextStep()
+        viewModel.nextStep()
+        viewModel.nextStep()
+
+        viewModel.createCharacter {}
+        viewModel.requestExit { exited = true }
+
+        assertFalse(viewModel.uiState.isDiscardConfirmationVisible)
+        assertFalse(viewModel.uiState.hasUnsavedChanges)
+        assertTrue(exited)
+    }
+
+    @Test
     fun callbackFailureDoesNotBecomePersistenceError() {
         val callbackFailingViewModel = CharacterCreationViewModel(
             repository = Phb2014RulesRepository(),
-            characterRepository = fakeRepository,
+            createCharacter = CreateCharacterUseCase(fakeRepository, CharacterCreationMapper()),
             launchCreate = { block -> runBlocking { block() } }
         )
 
@@ -166,7 +221,7 @@ class CharacterCreationViewModelTest {
     fun cancellationIsRethrown() {
         val cancellingViewModel = CharacterCreationViewModel(
             repository = Phb2014RulesRepository(),
-            characterRepository = CancellingCharacterRepository(),
+            createCharacter = CreateCharacterUseCase(CancellingCharacterRepository(), CharacterCreationMapper()),
             launchCreate = { block -> runBlocking { block() } }
         )
 
@@ -197,6 +252,7 @@ class CharacterCreationViewModelTest {
 
     private class FakeCharacterRepository : CharacterRepository {
         private val characters = MutableStateFlow<List<CharacterRecord>>(emptyList())
+        var lastCreatedCharacter: CharacterRecord? = null
 
         override fun observeCharacters(): Flow<List<CharacterRecord>> = characters
 
@@ -235,6 +291,7 @@ class CharacterCreationViewModelTest {
 
         override suspend fun createCharacter(character: CharacterRecord): Long {
             val nextId = (characters.value.maxOfOrNull(CharacterRecord::id) ?: 0L) + 1L
+            lastCreatedCharacter = character
             characters.value = characters.value + character.copy(id = nextId)
             return nextId
         }

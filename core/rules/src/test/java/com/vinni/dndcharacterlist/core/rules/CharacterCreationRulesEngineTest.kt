@@ -126,6 +126,25 @@ class CharacterCreationRulesEngineTest {
     }
 
     @Test
+    fun exposesFilledSpellProgressionForFullCasterAtHigherLevels() {
+        val result = engine.derive(
+            draft(
+                raceId = "elf",
+                subraceId = "high_elf",
+                classId = "wizard",
+                backgroundId = "sage",
+                baseAbilities = AbilityScores(8, 15, 13, 14, 12, 10),
+                selectedClassSkills = setOf("arcana", "history"),
+                level = 5
+            )
+        )
+
+        assertEquals(4, result.spellSlots?.firstLevel)
+        assertEquals(3, result.spellSlots?.secondLevel)
+        assertEquals(2, result.spellSlots?.thirdLevel)
+    }
+
+    @Test
     fun reportsBackgroundSkillConflictsWhenReplacementIsMissing() {
         val result = engine.derive(
             draft(
@@ -166,6 +185,7 @@ class CharacterCreationRulesEngineTest {
         backgroundId: String,
         baseAbilities: AbilityScores,
         selectedClassSkills: Set<String>,
+        level: Int = 1,
         subraceId: String? = null,
         selectedReplacementSkills: Map<String, String> = emptyMap()
     ): CharacterCreationDraft {
@@ -176,7 +196,7 @@ class CharacterCreationRulesEngineTest {
             subraceId = subraceId,
             classId = classId,
             backgroundId = backgroundId,
-            level = 1,
+            level = level,
             abilityMethod = AbilityMethod.MANUAL,
             baseAbilities = baseAbilities,
             selectedClassSkills = selectedClassSkills,

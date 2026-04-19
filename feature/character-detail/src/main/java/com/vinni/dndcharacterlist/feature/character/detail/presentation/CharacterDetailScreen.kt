@@ -36,7 +36,8 @@ fun CharacterDetailScreen(
     state: CharacterDetailUiState,
     onBack: () -> Unit,
     onEdit: () -> Unit,
-    onLevelUp: () -> Unit
+    onLevelUp: () -> Unit,
+    onDuplicate: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -115,10 +116,23 @@ fun CharacterDetailScreen(
                             }
                             Button(
                                 modifier = Modifier.fillMaxWidth(),
+                                enabled = !state.isDuplicating,
+                                onClick = onDuplicate
+                            ) {
+                                Text(if (state.isDuplicating) "Duplicating..." else "Duplicate as draft")
+                            }
+                            Button(
+                                modifier = Modifier.fillMaxWidth(),
                                 enabled = character.canLevelUp,
                                 onClick = onLevelUp
                             ) {
                                 Text(if (character.canLevelUp) "Level up" else "Max level reached")
+                            }
+                            state.actionErrorMessage?.let { message ->
+                                Text(
+                                    text = message,
+                                    color = MaterialTheme.colorScheme.error
+                                )
                             }
                         }
                     }
@@ -133,9 +147,32 @@ fun CharacterDetailScreen(
                             MetricCard(
                                 modifier = Modifier.weight(1f),
                                 label = "Hit Points",
-                                value = character.hitPoints.toString()
+                                value = "${character.hitPoints}/${character.hitPointsMax}"
                             )
                         }
+                    }
+
+                    InfoSection(title = "Build") {
+                        DetailMetadataRow(
+                            label = "Ruleset",
+                            value = character.ruleset
+                        )
+                        character.progressionDetails.forEach { item ->
+                            Text(text = item)
+                        }
+                    }
+
+                    InfoSection(title = "Proficiencies") {
+                        DetailMetadataRow(
+                            label = "Saving Throws",
+                            value = character.savingThrowProficiencies.ifEmpty { listOf("None recorded") }
+                                .joinToString(", ")
+                        )
+                        DetailMetadataRow(
+                            label = "Skills",
+                            value = character.skillProficiencies.ifEmpty { listOf("None recorded") }
+                                .joinToString(", ")
+                        )
                     }
 
                     InfoSection(title = "Ability Scores") {
@@ -179,6 +216,21 @@ fun CharacterDetailScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DetailMetadataRow(
+    label: String,
+    value: String
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(text = value)
     }
 }
 

@@ -5,6 +5,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.vinni.dndcharacterlist.core.navigation.NavigationDestination
+import com.vinni.dndcharacterlist.feature.character.levelup.domain.ApplyLevelUpUseCase
 import com.vinni.dndcharacterlist.feature.character.levelup.presentation.CharacterLevelUpScreen
 import com.vinni.dndcharacterlist.feature.character.levelup.presentation.CharacterLevelUpViewModel
 import org.koin.androidx.compose.koinViewModel
@@ -40,5 +41,14 @@ fun NavGraphBuilder.characterLevelUpGraph(
 }
 
 val characterLevelUpModule = module {
-    viewModel { (characterId: Long) -> CharacterLevelUpViewModel(get(), get(), characterId) }
+    factory { ApplyLevelUpUseCase(get(), get()) }
+    viewModel {
+        (characterId: Long) ->
+        CharacterLevelUpViewModel(
+            repository = get(),
+            levelUpRules = get(),
+            applyLevelUp = get(),
+            characterId = characterId
+        )
+    }
 }
