@@ -262,14 +262,18 @@ class CharacterEditorViewModel(
             return
         }
         launchBlock {
-            repository.deleteCharacter(id)
-            uiState = uiState.copy(completedAction = EditorCompletedAction.DELETED)
             try {
-                onDeleted()
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                uiState = uiState.copy(saveErrorMessage = "Character deleted, but navigation failed. Try again.")
+                repository.deleteCharacter(id)
+                uiState = uiState.copy(completedAction = EditorCompletedAction.DELETED)
+                try {
+                    onDeleted()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    uiState = uiState.copy(saveErrorMessage = "Character deleted, but navigation failed. Try again.")
+                }
+            } catch (_: IllegalArgumentException) {
+                uiState = uiState.copy(saveErrorMessage = "Character no longer exists. Reopen it from the list.")
             }
         }
     }

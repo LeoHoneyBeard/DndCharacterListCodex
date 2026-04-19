@@ -160,6 +160,15 @@ class CharacterEntityMapperTest {
     }
 
     @Test
+    fun deleteCharacterThrowsWhenExistingRowIsMissing() = runBlocking {
+        val repository = RoomCharacterRepository(FakeCharacterDao())
+
+        val result = runCatching { repository.deleteCharacter(999L) }
+
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test
     fun mergeIntoUsesExplicitMetadataOverridesWhenProvided() {
         val existing = CharacterEntity(
             id = 1L,
@@ -252,8 +261,10 @@ class CharacterEntityMapperTest {
             return if (characters.value.any { it.id == character.id }) 1 else 0
         }
 
-        override suspend fun deleteById(id: Long) {
+        override suspend fun deleteById(id: Long): Int {
+            val deleted = characters.value.count { it.id == id }
             characters.value = characters.value.filterNot { it.id == id }
+            return deleted
         }
     }
 
@@ -279,8 +290,10 @@ class CharacterEntityMapperTest {
             return 0
         }
 
-        override suspend fun deleteById(id: Long) {
+        override suspend fun deleteById(id: Long): Int {
+            val deleted = characters.value.count { it.id == id }
             characters.value = characters.value.filterNot { it.id == id }
+            return deleted
         }
     }
 }

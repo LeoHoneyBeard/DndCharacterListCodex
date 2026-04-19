@@ -124,7 +124,26 @@ class CharacterEditorViewModelTest {
         assertEquals(1, repository.deleteCalls)
     }
 
-    private class FakeCharacterRepository : CharacterRepository {
+    @Test
+    fun deleteReportsMissingCharacterInsteadOfSucceedingSilently() {
+        val repository = FakeCharacterRepository(deleteError = IllegalArgumentException("missing"))
+        val viewModel = CharacterEditorViewModel(
+            repository = repository,
+            editorRules = CharacterEditorRules(Phb2014RulesRepository()),
+            characterId = 42L,
+            launchAsync = { block -> runBlocking { block() } }
+        )
+
+        viewModel.delete {}
+
+        assertEquals(1, repository.deleteCalls)
+        assertEquals("Character no longer exists. Reopen it from the list.", viewModel.uiState.saveErrorMessage)
+        assertNull(viewModel.uiState.completedAction)
+    }
+
+    private class FakeCharacterRepository(
+        private val deleteError: IllegalArgumentException? = null
+    ) : CharacterRepository {
         var saveCalls = 0
         var deleteCalls = 0
         var lastSavedCharacter: CharacterUpsert? = null
@@ -144,6 +163,7 @@ class CharacterEditorViewModelTest {
 
         override suspend fun deleteCharacter(id: Long) {
             deleteCalls += 1
+            deleteError?.let { throw it }
         }
     }
 }

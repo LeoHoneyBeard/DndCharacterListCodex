@@ -45,6 +45,9 @@ class RoomCharacterRepository(
     }
 
     override suspend fun deleteCharacter(id: Long) {
-        characterDao.deleteById(id)
+        val deletedRows = characterDao.deleteById(id)
+        require(deletedRows == 1) {
+            "Character with id=$id no longer exists."
+        }
     }
 }
