@@ -11,8 +11,10 @@ import com.vinni.dndcharacterlist.core.rules.creation.rules.HitPointEngine
 import com.vinni.dndcharacterlist.core.rules.creation.rules.RaceDefinition
 import com.vinni.dndcharacterlist.core.rules.creation.rules.RulesContent
 import com.vinni.dndcharacterlist.core.rules.creation.rules.SkillDefinition
+import com.vinni.dndcharacterlist.core.rules.creation.rules.SpellcastingDefinition
 import com.vinni.dndcharacterlist.core.rules.creation.rules.SubclassDefinition
 import com.vinni.dndcharacterlist.core.rules.levelup.CharacterLevelUpRules
+import com.vinni.dndcharacterlist.core.rules.levelup.LevelUpRequirement
 import com.vinni.dndcharacterlist.core.rules.levelup.LevelUpResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -24,14 +26,12 @@ class CharacterLevelUpRulesTest {
     fun prepareLevelUpAdvancesHitPointsWhenNoMandatoryChoiceExists() {
         val rules = CharacterLevelUpRules(Phb2014RulesRepository(), HitPointEngine())
         val character = baseCharacter(
-            classId = "sorcerer",
-            characterClass = "Sorcerer",
-            subclassId = "wild_magic",
-            subclass = "Wild Magic",
+            classId = "barbarian",
+            characterClass = "Barbarian",
             constitution = 14,
             level = 1,
-            hitPoints = 9,
-            hitPointsMax = 9
+            hitPoints = 14,
+            hitPointsMax = 14
         )
 
         val result = rules.prepareLevelUp(character, selectedSubclassId = null)
@@ -39,9 +39,9 @@ class CharacterLevelUpRulesTest {
         assertTrue(result is LevelUpResult.Ready)
         val ready = result as LevelUpResult.Ready
         assertEquals(2, ready.character.level)
-        assertEquals(15, ready.character.hitPoints)
-        assertEquals(15, ready.character.hitPointsMax)
-        assertEquals("wild_magic", ready.character.subclassId)
+        assertEquals(23, ready.character.hitPoints)
+        assertEquals(23, ready.character.hitPointsMax)
+        assertEquals("", ready.character.subclassId)
     }
 
     @Test
@@ -94,8 +94,28 @@ class CharacterLevelUpRulesTest {
         val preview = rules.preview(character)
 
         assertEquals(null, preview.blockingReason)
-        assertTrue(preview.requiresSubclassSelection)
-        assertEquals("evocation", preview.availableSubclasses.first { it.name == "School of Evocation" }.id)
+        val requirement = preview.requirements.first() as LevelUpRequirement.SubclassSelection
+        assertEquals("evocation", requirement.options.first { it.name == "School of Evocation" }.id)
+    }
+
+    @Test
+    fun previewBlocksRangerLevelTwoBehindUnsupportedMandatoryChoice() {
+        val rules = CharacterLevelUpRules(UnsupportedSpellChoiceRepository(), HitPointEngine())
+        val character = baseCharacter(
+            classId = "ranger",
+            characterClass = "Ranger",
+            level = 1
+        )
+
+        val preview = rules.preview(character)
+
+        assertEquals(null, preview.blockingReason)
+        val requirement = preview.requirements.first() as LevelUpRequirement.UnsupportedChoice
+        assertEquals("Fighting Style", requirement.title)
+        assertEquals(
+            "This level requires choosing a fighting style, but level-up does not support that choice yet.",
+            requirement.description
+        )
     }
 
     private fun baseCharacter(
@@ -156,6 +176,32 @@ class CharacterLevelUpRulesTest {
                         subclasses = listOf(
                             SubclassDefinition("storm", "Storm Path"),
                             SubclassDefinition("void", "Void Path")
+                        )
+                    )
+                ),
+                backgrounds = listOf(BackgroundDefinition("sage", "Sage", emptySet())),
+                skills = listOf(SkillDefinition("arcana", "Arcana", AbilityType.INTELLIGENCE))
+            )
+        }
+    }
+
+    private class UnsupportedSpellChoiceRepository : RulesRepository {
+        override fun getRuleset(ruleset: Ruleset): RulesContent {
+            return RulesContent(
+                races = listOf(RaceDefinition("elf", "Elf", emptyMap())),
+                classes = listOf(
+                    ClassDefinition(
+                        id = "ranger",
+                        name = "Ranger",
+                        hitDie = 10,
+                        primaryAbilities = setOf(AbilityType.DEXTERITY),
+                        savingThrowProficiencies = setOf(AbilityType.STRENGTH),
+                        skillChoiceCount = 2,
+                        skillOptions = emptySet(),
+                        subclassLevel = 3,
+                        spellcasting = SpellcastingDefinition(
+                            spellcastingAbility = AbilityType.WISDOM,
+                            slotsByLevel = emptyMap()
                         )
                     )
                 ),
